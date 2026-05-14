@@ -1,0 +1,65 @@
+package router
+
+import (
+	"github.com/I000000/recly/internal/handler"
+	"github.com/I000000/recly/internal/middleware"
+	"github.com/gin-gonic/gin"
+)
+
+func Setup(
+	authH *handler.AuthHandler,
+	libH *handler.LibraryHandler,
+	recH *handler.RecommendationHandler,
+	userH *handler.UserHandler,
+	secret string,
+) *gin.Engine {
+	r := gin.Default()
+	r.Use(corsMiddleware())
+
+	api := r.Group("/api")
+	{
+		auth := api.Group("/auth")
+		{
+			auth.POST("/register", authH.Register)
+			auth.POST("/login", authH.Login)
+		}
+
+		protected := api.Group("/")
+		protected.Use(middleware.AuthMiddleware(secret))
+		{
+			// библиотека
+			protected.POST("/book/:id/like", libH.AddBook)
+			protected.DELETE("/book/:id/like", libH.RemoveBook)
+			protected.GET("/user/library/books", libH.GetBooks)
+			protected.POST("/movie/:id/like", libH.AddMovie)
+			protected.DELETE("/movie/:id/like", libH.RemoveMovie)
+			protected.GET("/user/library/movies", libH.GetMovies)
+
+			// рекомендации
+			protected.POST("/recommend", recH.Request)
+			protected.GET("/user/recommendations/history", recH.GetHistory)
+			protected.POST("/recommendations/save", recH.Save)
+			protected.DELETE("/recommendations/:id", recH.DeleteSaved)
+			protected.GET("/user/recommendations/saved", recH.GetSaved)
+
+			// профиль
+			protected.GET("/user/profile", userH.Profile)
+
+			protected.GET("/result/:taskId", recH.GetResult)
+		}
+	}
+	return r
+}
+
+func corsMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Header("Access-Control-Allow-Origin", "*")
+		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		c.Header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(204)
+			return
+		}
+		c.Next()
+	}
+}
