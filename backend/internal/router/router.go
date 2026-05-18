@@ -14,6 +14,7 @@ func Setup(
 	secret string,
 ) *gin.Engine {
 	r := gin.Default()
+	r.Use(middleware.SpamFilter())
 	r.Use(corsMiddleware())
 
 	api := r.Group("/api")

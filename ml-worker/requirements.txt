@@ -1,0 +1,10 @@
+torch==2.2.2
+numpy
+pyarrow
+psycopg2-binary
+scikit-learn
+sentence-transformers
+redis
+pika
+pandas
+h5py

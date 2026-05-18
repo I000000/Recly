@@ -57,9 +57,23 @@ func (s *RecommendationService) Request(ctx context.Context, userID string, sele
 	return taskID, nil
 }
 
-// GetResult проверяет кэш и возвращает результат
 func (s *RecommendationService) GetResult(ctx context.Context, taskID string) (*redis.RecommendationResult, error) {
-	return s.cache.GetResult(ctx, taskID)
+	// Пробуем Redis
+	result, err := s.cache.GetResult(ctx, taskID)
+	if err == nil && result != nil {
+		return result, nil
+	}
+	// Если в Redis нет, ищем в истории БД
+	history, err := s.repo.GetHistoryByTaskID(ctx, taskID)
+	if err == nil && history != nil && history.Result != "" {
+		// Парсим JSON-массив ID фильмов из поля result
+		var movieIDs []string
+		if err := json.Unmarshal([]byte(history.Result), &movieIDs); err == nil {
+			return &redis.RecommendationResult{Status: "done", Movies: movieIDs}, nil
+		}
+	}
+	// Если ничего не нашли, возвращаем pending
+	return &redis.RecommendationResult{Status: "pending"}, nil
 }
 
 func (s *RecommendationService) GetHistory(ctx context.Context, userID string) ([]domain.RecommendationHistory, error) {

@@ -91,7 +91,11 @@ func (h *RecommendationHandler) GetResult(c *gin.Context) {
 	taskID := c.Param("taskId")
 	result, err := h.recService.GetResult(c.Request.Context(), taskID)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "task not found"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
+		return
+	}
+	if result == nil {
+		c.JSON(http.StatusOK, gin.H{"status": "pending"})
 		return
 	}
 	c.JSON(http.StatusOK, result)

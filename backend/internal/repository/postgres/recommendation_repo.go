@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 
 	"github.com/I000000/recly/internal/domain"
@@ -20,10 +21,18 @@ func (r *RecommendationRepo) SaveHistory(ctx context.Context, entry *domain.Reco
 	if err != nil {
 		return err
 	}
+
+	var result interface{}
+	if entry.Result == "" {
+		result = nil
+	} else {
+		result = entry.Result
+	}
+
 	return r.pool.QueryRow(ctx,
 		`INSERT INTO user_recommendation_history (user_id, task_id, selected_ids, direction, weights, result)
-         VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, created_at`,
-		entry.UserID, entry.TaskID, string(selJSON), entry.Direction, entry.Weights, entry.Result,
+         VALUES ($1, $2, $3, $4, $5::jsonb, $6) RETURNING id, created_at`,
+		entry.UserID, entry.TaskID, string(selJSON), entry.Direction, entry.Weights, result,
 	).Scan(&entry.ID, &entry.CreatedAt)
 }
 
@@ -40,13 +49,32 @@ func (r *RecommendationRepo) GetHistory(ctx context.Context, userID string) ([]d
 	for rows.Next() {
 		var e domain.RecommendationHistory
 		var selStr string
-		if err := rows.Scan(&e.ID, &e.UserID, &e.TaskID, &selStr, &e.Direction, &e.Weights, &e.Result, &e.CreatedAt); err != nil {
+		var resultStr sql.NullString // <-- временная переменная для nullable поля
+		if err := rows.Scan(&e.ID, &e.UserID, &e.TaskID, &selStr, &e.Direction, &e.Weights, &resultStr, &e.CreatedAt); err != nil {
 			return nil, err
 		}
+		e.Result = resultStr.String // если NULL, будет пустая строка
 		json.Unmarshal([]byte(selStr), &e.SelectedIDs)
 		entries = append(entries, e)
 	}
 	return entries, rows.Err()
+}
+
+func (r *RecommendationRepo) GetHistoryByTaskID(ctx context.Context, taskID string) (*domain.RecommendationHistory, error) {
+	var e domain.RecommendationHistory
+	var selStr string
+	var resultStr sql.NullString
+	err := r.pool.QueryRow(ctx,
+		`SELECT id, user_id, task_id, selected_ids, direction, weights, result, created_at
+         FROM user_recommendation_history WHERE task_id = $1`,
+		taskID,
+	).Scan(&e.ID, &e.UserID, &e.TaskID, &selStr, &e.Direction, &e.Weights, &resultStr, &e.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	e.Result = resultStr.String
+	json.Unmarshal([]byte(selStr), &e.SelectedIDs)
+	return &e, nil
 }
 
 func (r *RecommendationRepo) SaveRecommendation(ctx context.Context, rec *domain.SavedRecommendation) error {
