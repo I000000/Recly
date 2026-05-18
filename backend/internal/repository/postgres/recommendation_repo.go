@@ -49,11 +49,11 @@ func (r *RecommendationRepo) GetHistory(ctx context.Context, userID string) ([]d
 	for rows.Next() {
 		var e domain.RecommendationHistory
 		var selStr string
-		var resultStr sql.NullString // <-- временная переменная для nullable поля
+		var resultStr sql.NullString
 		if err := rows.Scan(&e.ID, &e.UserID, &e.TaskID, &selStr, &e.Direction, &e.Weights, &resultStr, &e.CreatedAt); err != nil {
 			return nil, err
 		}
-		e.Result = resultStr.String // если NULL, будет пустая строка
+		e.Result = resultStr.String
 		json.Unmarshal([]byte(selStr), &e.SelectedIDs)
 		entries = append(entries, e)
 	}

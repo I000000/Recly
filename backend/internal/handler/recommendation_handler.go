@@ -16,7 +16,7 @@ func NewRecommendationHandler(recService *service.RecommendationService) *Recomm
 }
 
 type RecommendRequest struct {
-	SelectedIDs     []string           `json:"selected_ids" binding:"required,min=1"`
+	SelectedIDs     []string           `json:"selected_ids" binding:"required"`
 	Direction       string             `json:"direction" binding:"required,oneof=book_to_movie book_to_book movie_to_movie movie_to_book"`
 	ModalityWeights map[string]float64 `json:"weights"`
 }

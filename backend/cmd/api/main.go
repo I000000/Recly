@@ -59,7 +59,7 @@ func main() {
 	// Сервисы
 	authSvc := service.NewAuthService(userRepo, tokenRepo, cfg.JWTSecret, cfg.AccessTokenTTL, cfg.RefreshTokenTTL)
 	libSvc := service.NewLibraryService(libRepo)
-	recSvc := service.NewRecommendationService(recRepo, publisher, cache)
+	recSvc := service.NewRecommendationService(recRepo, publisher, cache, libSvc)
 
 	// Хэндлеры
 	authH := handler.NewAuthHandler(authSvc)
