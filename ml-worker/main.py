@@ -30,7 +30,7 @@ def load_embeddings():
         movie_image = f['/movies/image'][:].astype('float32')
     book_ids  = load_ids(BOOK_PARQUET, 'book_id')
     movie_ids = load_ids(MOVIE_PARQUET, 'movie_id')
-    print(f"Loaded {len(book_ids)} books and {len(movie_ids)} movies")
+    print(f"Loaded embeddings for {len(book_ids)} books and {len(movie_ids)} movies.")
 
 def normalize(vec):
     norm = np.linalg.norm(vec)
@@ -65,9 +65,9 @@ def update_history(task_id, movies_json):
         conn.commit()
         cur.close()
         conn.close()
-        print(f"History updated for task {task_id}")
+        print(f"Task {task_id} saved to history.")
     except Exception as e:
-        print(f"Failed to update history for task {task_id}: {e}")
+        print(f"Failed to save task {task_id} to history: {e}.")
 
 def on_message(ch, method, properties, body):
     task_id = None
@@ -83,9 +83,9 @@ def on_message(ch, method, properties, body):
         else:
             result = {"status": "done", "movies": recommend(selected_indices, weights, direction)}
         redis_client.set(f"rec:{task_id}", json.dumps(result), ex=1800)
+        print(f"Task {task_id} completed. Recommendations are ready.")
         if result.get("status") == "done":
             update_history(task_id, json.dumps(result["movies"]))
-        print(f"Task {task_id} completed")
     except Exception as e:
         print(f"Error: {e}")
         if task_id:
@@ -117,7 +117,7 @@ def shutdown(signum, frame):
 def main():
     global redis_client
     redis_client = redis.Redis.from_url(REDIS_URL)
-    print("Connected to Redis")
+    print("Connected to Redis.")
     load_embeddings()
     signal.signal(signal.SIGINT, shutdown)
     signal.signal(signal.SIGTERM, shutdown)

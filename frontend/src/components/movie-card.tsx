@@ -1,19 +1,22 @@
 export default function MovieCard({ movie }: { movie: any }) {
   return (
-    <div className="border rounded-lg overflow-hidden shadow-sm">
+    <div className="relative border rounded-lg overflow-hidden shadow-sm aspect-[2/3]">
       {movie.poster_url && (
         <img
-          src={`/posters/${movie.movie_id}.jpg`}
+          src={movie.poster_url}
           alt={movie.title}
-          className="w-full aspect-[2/3] object-cover rounded-t-lg"
+          className="absolute inset-0 w-full h-full object-cover"
+          referrerPolicy="no-referrer"
+          crossOrigin="anonymous"
           onError={(e) => {
-            (e.target as HTMLImageElement).src = movie.poster_url || '/placeholder.png';
+            (e.target as HTMLImageElement).src = '/placeholder.png';
           }}
         />
       )}
-      <div className="p-3">
-        <h3 className="font-semibold">{movie.title}</h3>
-        {movie.vote_average && <p className="text-xs text-muted-foreground">★ {movie.vote_average}</p>}
+      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent p-3 pt-22">
+        <h3 className="text-white text-sm font-bold leading-tight line-clamp-2">
+          {movie.title}
+        </h3>
       </div>
     </div>
   );

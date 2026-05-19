@@ -1,25 +1,22 @@
-'use client';
-
-import { useEffect, useState } from 'react';
-import { loadBooks } from '@/lib/data';
-
-export default function BookCard({ bookId }: { bookId: string }) {
-  const [book, setBook] = useState<any>(null);
-  useEffect(() => {
-    loadBooks().then((books) => {
-      const found = books.find((b: any) => b.book_id === bookId);
-      if (found) setBook(found);
-    });
-  }, [bookId]);
-  if (!book) return null;
+export default function BookCard({ book }: { book: any }) {
   return (
-    <div className="border rounded-lg overflow-hidden shadow-sm">
+    <div className="relative border rounded-lg overflow-hidden shadow-sm aspect-[3/4]">
       {book.image_url && (
-        <img src={book.image_url} alt={book.title} className="w-full h-48 object-cover" />
+        <img
+          src={book.image_url}
+          alt={book.title}
+          className="absolute inset-0 w-full h-full object-cover"
+          referrerPolicy="no-referrer"
+          crossOrigin="anonymous"
+          onError={(e) => {
+            (e.target as HTMLImageElement).src = '/placeholder.png';
+          }}
+        />
       )}
-      <div className="p-3">
-        <h3 className="font-semibold">{book.title}</h3>
-        {book.average_rating && <p className="text-xs text-muted-foreground">★ {book.average_rating}</p>}
+      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent p-3 pt-22">
+        <h3 className="text-white text-sm font-bold leading-tight line-clamp-2">
+          {book.title}
+        </h3>
       </div>
     </div>
   );

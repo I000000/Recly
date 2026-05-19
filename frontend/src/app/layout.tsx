@@ -10,11 +10,14 @@ export const metadata: Metadata = {
   description: 'Discover movies based on your favorite books',
 };
 
+import MobileNav from '@/components/mobile-nav';
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className={inter.className}>
+      <body className="pb-16 lg:pb-0"> {/* отступ для мобильной панели */}
         <Providers>{children}</Providers>
+        <MobileNav />
       </body>
     </html>
   );

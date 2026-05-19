@@ -12,6 +12,8 @@ func LoggerWithoutSpam() gin.HandlerFunc {
 		path := c.Request.URL.Path
 		if strings.HasPrefix(path, "/announce") ||
 			strings.HasPrefix(path, "/control") ||
+			strings.HasPrefix(path, "/checkupdate") ||
+			strings.HasPrefix(path, "/scrape") ||
 			strings.HasPrefix(path, "/ann") {
 			c.AbortWithStatus(403)
 			return
