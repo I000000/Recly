@@ -1,11 +1,15 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import { HistoryEntry, SavedRecommendation } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 
 export default function ProfilePage() {
+  const router = useRouter();
+
   const { data: history } = useQuery<HistoryEntry[]>({
     queryKey: ['history'],
     queryFn: async () => (await api.get('/api/user/recommendations/history')).data.history,
@@ -16,9 +20,16 @@ export default function ProfilePage() {
     queryFn: async () => (await api.get('/api/user/recommendations/saved')).data.saved,
   });
 
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC';
+    router.push('/login');
+  };
+
   return (
-    <div className="container mx-auto p-4 space-y-6">
+    <div className="container mx-auto p-4 pb-20 space-y-6">
       <h1 className="text-2xl font-bold">Profile</h1>
+
       <Card>
         <CardHeader><CardTitle>History</CardTitle></CardHeader>
         <CardContent>
@@ -31,6 +42,7 @@ export default function ProfilePage() {
           ))}
         </CardContent>
       </Card>
+
       <Card>
         <CardHeader><CardTitle>Saved</CardTitle></CardHeader>
         <CardContent>
@@ -41,6 +53,10 @@ export default function ProfilePage() {
           ))}
         </CardContent>
       </Card>
+
+      <Button onClick={handleLogout} variant="destructive" className="w-full">
+        Log out
+      </Button>
     </div>
   );
 }

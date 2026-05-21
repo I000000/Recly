@@ -6,8 +6,8 @@ import Providers from '@/components/providers';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Recly – Cross-Media Recommendations',
-  description: 'Discover movies based on your favorite books',
+  title: 'Recly',
+  description: 'Discover movies and books recommended just for you',
 };
 
 import MobileNav from '@/components/mobile-nav';

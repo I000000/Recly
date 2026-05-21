@@ -1,85 +1,157 @@
 'use client';
 
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Search, Loader2, Plus, X } from 'lucide-react';
 import api from '@/lib/api';
-import { Book, Movie } from '@/types';
-import { Button } from '@/components/ui/button';
-import { loadBooks, loadMovies } from '@/lib/data';
-import { useEffect, useState } from 'react';
+import MovieCard from '@/components/movie-card';
+import BookCard from '@/components/book-card';
+import BookSelector from '@/components/book-selector';
 
 export default function LibraryPage() {
   const queryClient = useQueryClient();
+  const [activeTab, setActiveTab] = useState<'movies' | 'books'>('movies');
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [libraryQuery, setLibraryQuery] = useState('');
 
-  const { data: likedBooks } = useQuery<string[]>({
+  // Получаем ID любимых элементов
+  const { data: likedBooks = [], isLoading: booksLoading } = useQuery<string[]>({
     queryKey: ['likedBooks'],
-    queryFn: async () => {
-      const res = await api.get('/api/user/library/books');
-      return res.data.books.map((b: any) => b.book_id);
-    },
+    queryFn: async () => (await api.get('/api/user/library/books')).data.books.map((b: any) => b.book_id),
+    staleTime: 1000 * 60 * 30,
   });
 
-  const { data: likedMovies } = useQuery<string[]>({
+  const { data: likedMovies = [], isLoading: moviesLoading } = useQuery<string[]>({
     queryKey: ['likedMovies'],
+    queryFn: async () => (await api.get('/api/user/library/movies')).data.movies.map((m: any) => m.movie_id),
+    staleTime: 1000 * 60 * 30,
+  });
+
+  const ids = activeTab === 'movies' ? likedMovies : likedBooks;
+  const type = activeTab === 'movies' ? 'movie' : 'book';
+
+  // Загружаем метаданные пачкой
+  const { data: batchMeta = {}, isLoading: metaLoading, error: metaError } = useQuery({
+    queryKey: ['batchMeta', ids, type],
     queryFn: async () => {
-      const res = await api.get('/api/user/library/movies');
-      return res.data.movies.map((m: any) => m.movie_id);
+      if (ids.length === 0) return {};
+      const res = await api.get(`/api/items/batch?ids=${ids.join(',')}&type=${type}`);
+      const map: Record<string, any> = {};
+      (res.data.items || []).forEach((item: any) => {
+        map[item.id] = {
+          id: item.id,
+          title: item.title,
+          image: item.image,
+          type: item.type,
+        };
+      });
+      return map;
+    },
+    enabled: ids.length > 0,
+  });
+
+  // Фильтрация на клиенте
+  const filteredIds = libraryQuery.trim()
+    ? ids.filter(id => batchMeta[id]?.title?.toLowerCase().includes(libraryQuery.toLowerCase()))
+    : ids;
+
+  // Мутации
+  const addBook = useMutation({
+    mutationFn: (bookId: string) => api.post(`/api/book/${bookId}/like`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['likedBooks'] });
+      setShowAddModal(false);
+    },
+  });
+  const addMovie = useMutation({
+    mutationFn: (movieId: string) => api.post(`/api/movie/${movieId}/like`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['likedMovies'] });
+      setShowAddModal(false);
     },
   });
 
-  const removeBook = useMutation({
-    mutationFn: (bookId: string) => api.delete(`/api/book/${bookId}/like`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['likedBooks'] }),
-  });
-
-  const removeMovie = useMutation({
-    mutationFn: (movieId: string) => api.delete(`/api/movie/${movieId}/like`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['likedMovies'] }),
-  });
+  const isLoading = booksLoading || moviesLoading || metaLoading;
 
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">Your Library</h1>
-      <h2 className="text-xl font-semibold mb-2">Books</h2>
-      <div className="space-y-2">
-        {likedBooks?.map((id) => (
-          <div key={id} className="flex justify-between items-center border p-2 rounded">
-            <span>{id} <BookTitle bookId={id} /></span>
-            <Button size="sm" variant="destructive" onClick={() => removeBook.mutate(id)}>Remove</Button>
-          </div>
-        ))}
+    <div className="min-h-screen pb-20">
+      {/* Заголовок */}
+      <div className="px-4 pt-6 pb-2">
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-2xl font-bold tracking-tight">Your Library</h1>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="w-8 h-8 flex items-center justify-center rounded-full bg-primary text-primary-foreground"
+          >
+            <Plus className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder={`Search your ${activeTab}...`}
+            value={libraryQuery}
+            onChange={(e) => setLibraryQuery(e.target.value)}
+            className="w-full pl-9 pr-4 py-2 rounded-lg border border-border bg-background text-sm"
+          />
+        </div>
       </div>
-      <h2 className="text-xl font-semibold mt-6 mb-2">Movies</h2>
-      <div className="space-y-2">
-        {likedMovies?.map((id) => (
-          <div key={id} className="flex justify-between items-center border p-2 rounded">
-            <span>{id} <MovieTitle movieId={id} /></span>
-            <Button size="sm" variant="destructive" onClick={() => removeMovie.mutate(id)}>Remove</Button>
-          </div>
-        ))}
+
+      {/* Вкладки */}
+      <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-sm border-b border-border px-4 py-2">
+        <div className="flex gap-2">
+          <button
+            onClick={() => setActiveTab('movies')}
+            className={`px-4 py-2 rounded-full text-sm font-medium ${activeTab === 'movies' ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}
+          >Movies</button>
+          <button
+            onClick={() => setActiveTab('books')}
+            className={`px-4 py-2 rounded-full text-sm font-medium ${activeTab === 'books' ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}
+          >Books</button>
+        </div>
       </div>
+
+      {/* Содержимое */}
+      {isLoading ? (
+        <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin" /></div>
+      ) : metaError ? (
+        <p className="text-destructive text-center py-20">Failed to load library</p>
+      ) : filteredIds.length === 0 ? (
+        <p className="text-muted-foreground text-center py-20">
+          {libraryQuery.trim() ? 'No matches found.' : `No ${activeTab} in your library yet.`}
+        </p>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 p-4">
+          {filteredIds.map(id => {
+            const item = batchMeta[id];
+            if (!item) return null;
+            return item.type === 'movie' ? (
+              <MovieCard key={id} movie={{ movie_id: id, title: item.title, poster_url: item.image }} />
+            ) : (
+              <BookCard key={id} book={{ book_id: id, title: item.title, image_url: item.image }} />
+            );
+          })}
+        </div>
+      )}
+
+      {/* Модальное окно добавления */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-start justify-center pt-20">
+          <div className="bg-background border border-border rounded-xl p-4 w-full max-w-md mx-4 shadow-lg">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold">Add to Library</h2>
+              <button onClick={() => setShowAddModal(false)}><X className="w-5 h-5" /></button>
+            </div>
+            <BookSelector
+              onSelect={(item) => {
+                if (item.type === 'book') addBook.mutate(item.id);
+                else addMovie.mutate(item.id);
+              }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
-}
-
-// Вспомогательные компоненты для отображения названий
-function BookTitle({ bookId }: { bookId: string }) {
-  const [title, setTitle] = useState('');
-  useEffect(() => {
-    loadBooks().then((books) => {
-      const b = books.find((b) => b.book_id === bookId);
-      if (b) setTitle(b.title);
-    });
-  }, [bookId]);
-  return <span className="ml-2 text-sm text-muted-foreground">{title}</span>;
-}
-
-function MovieTitle({ movieId }: { movieId: string }) {
-  const [title, setTitle] = useState('');
-  useEffect(() => {
-    loadMovies().then((movies) => {
-      const m = movies.find((m) => m.movie_id === movieId);
-      if (m) setTitle(m.title);
-    });
-  }, [movieId]);
-  return <span className="ml-2 text-sm text-muted-foreground">{title}</span>;
 }

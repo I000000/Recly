@@ -9,11 +9,12 @@ QUEUE_NAME = os.getenv("QUEUE_NAME", "recommendation_tasks")
 EMBEDDINGS_PATH = os.getenv("EMBEDDINGS_PATH", "/data/embeddings.h5")
 BOOK_PARQUET = os.getenv("BOOK_PARQUET", "/data/goodreads.parquet")
 MOVIE_PARQUET = os.getenv("MOVIE_PARQUET", "/data/tmdb.parquet")
-
 DATABASE_URL = os.getenv("DATABASE_URL", "postgres://recly:recly_pass@postgres:5432/recly_db?sslmode=disable")
 
 book_text = movie_text = book_genre = movie_genre = book_image = movie_image = None
 book_ids = movie_ids = None
+book_id_to_idx = {}
+movie_id_to_idx = {}
 redis_client = None
 
 def load_ids(path, id_col):
@@ -21,6 +22,7 @@ def load_ids(path, id_col):
 
 def load_embeddings():
     global book_text, movie_text, book_genre, movie_genre, book_image, movie_image, book_ids, movie_ids
+    global book_id_to_idx, movie_id_to_idx
     with h5py.File(EMBEDDINGS_PATH, 'r') as f:
         book_text  = f['/books/desc'][:].astype('float32')
         book_genre = f['/books/genre'][:].astype('float32')
@@ -30,26 +32,55 @@ def load_embeddings():
         movie_image = f['/movies/image'][:].astype('float32')
     book_ids  = load_ids(BOOK_PARQUET, 'book_id')
     movie_ids = load_ids(MOVIE_PARQUET, 'movie_id')
+    book_id_to_idx = {bid: i for i, bid in enumerate(book_ids)}
+    movie_id_to_idx = {mid: i for i, mid in enumerate(movie_ids)}
     print(f"Loaded embeddings for {len(book_ids)} books and {len(movie_ids)} movies.")
 
 def normalize(vec):
     norm = np.linalg.norm(vec)
     return vec / norm if norm > 1e-8 else vec
 
-def recommend(selected_indices, weights, direction):
-    w_g, w_t, w_i = weights.get('genre',0.3), weights.get('text',0.4), weights.get('image',0.3)
-    src = ('book' if direction.startswith('book') else 'movie')
-    tgt = ('movie' if direction.endswith('movie') else 'book')
-    src_text, src_genre, src_img, src_ids = (book_text, book_genre, book_image, book_ids) if src == 'book' else (movie_text, movie_genre, movie_image, movie_ids)
-    tgt_text, tgt_genre, tgt_img, tgt_ids = (movie_text, movie_genre, movie_image, movie_ids) if tgt == 'movie' else (book_text, book_genre, book_image, book_ids)
+def recommend(selected_ids, weights, direction):
+    w_g = weights.get('genre', 0.3)
+    w_t = weights.get('text', 0.4)
+    w_i = weights.get('image', 0.3)
 
-    user_text = normalize(sum(src_text[i] for i in selected_indices))
-    user_genre = normalize(sum(src_genre[i] for i in selected_indices))
-    user_img = normalize(sum(src_img[i] for i in selected_indices))
+    book_indices = []
+    movie_indices = []
+    for sid in selected_ids:
+        if sid.startswith('book_'):
+            idx = book_id_to_idx.get(sid[5:])
+            if idx is not None:
+                book_indices.append(idx)
+        elif sid.startswith('movie_'):
+            idx = movie_id_to_idx.get(sid[6:])
+            if idx is not None:
+                movie_indices.append(idx)
+
+    user_text = np.zeros(book_text.shape[1])
+    user_genre = np.zeros(book_genre.shape[1])
+    user_image = np.zeros(book_image.shape[1])
+    for idx in book_indices:
+        user_text += book_text[idx]
+        user_genre += book_genre[idx]
+        user_image += book_image[idx]
+    for idx in movie_indices:
+        user_text += movie_text[idx]
+        user_genre += movie_genre[idx]
+        user_image += movie_image[idx]
+
+    user_text = normalize(user_text)
+    user_genre = normalize(user_genre)
+    user_image = normalize(user_image)
+
+    if direction.endswith('movie'):
+        tgt_text, tgt_genre, tgt_img, tgt_ids = movie_text, movie_genre, movie_image, movie_ids
+    else:
+        tgt_text, tgt_genre, tgt_img, tgt_ids = book_text, book_genre, book_image, book_ids
 
     sim_text  = cosine_similarity(user_text.reshape(1,-1), tgt_text).flatten()
     sim_genre = cosine_similarity(user_genre.reshape(1,-1), tgt_genre).flatten()
-    sim_img   = cosine_similarity(user_img.reshape(1,-1), tgt_img).flatten()
+    sim_img   = cosine_similarity(user_image.reshape(1,-1), tgt_img).flatten()
     combined  = w_g*sim_genre + w_t*sim_text + w_i*sim_img
     top = np.argsort(combined)[::-1][:10]
     return [tgt_ids[i] for i in top]
@@ -76,25 +107,25 @@ def on_message(ch, method, properties, body):
         task_id = data['task_id']
         direction = data.get('direction', 'book_to_movie')
         weights = data.get('weights', {})
-        id_to_idx = {bid: i for i, bid in enumerate(book_ids if direction.startswith('book') else movie_ids)}
-        selected_indices = [id_to_idx[sid] for sid in data['selected_ids'] if sid in id_to_idx]
-        if not selected_indices:
-            result = {"status": "error", "error": "No valid selected items"}
+        selected_ids = data['selected_ids']
+
+        if not selected_ids:
+            result = {"status": "error", "error": "No selected items"}
         else:
-            result = {"status": "done", "movies": recommend(selected_indices, weights, direction)}
+            result = {"status": "done", "movies": recommend(selected_ids, weights, direction)}
+
         redis_client.set(f"rec:{task_id}", json.dumps(result), ex=1800)
         print(f"Task {task_id} completed. Recommendations are ready.")
         if result.get("status") == "done":
             update_history(task_id, json.dumps(result["movies"]))
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"Error: {e}", flush=True)
         if task_id:
             redis_client.set(f"rec:{task_id}", json.dumps({"status":"error","error":str(e)}), ex=1800)
     finally:
         ch.basic_ack(delivery_tag=method.delivery_tag)
 
 def start_consumer():
-    """Подключается к RabbitMQ и запускает потребление с переподключением при ошибках."""
     while True:
         try:
             params = pika.URLParameters(RABBITMQ_URL)
@@ -125,3 +156,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    

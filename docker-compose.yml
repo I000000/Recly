@@ -30,7 +30,7 @@ services:
       - "15672:15672"
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
     healthcheck:
       test: ["CMD", "rabbitmqctl", "status"]
       interval: 5s
@@ -44,7 +44,7 @@ services:
       SERVER_PORT: 8080
       DATABASE_URL: postgres://${POSTGRES_USER:-recly}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-recly_db}?sslmode=disable
       REDIS_URL: redis:6379
-      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672/
       JWT_SECRET: ${JWT_SECRET}
       ACCESS_TOKEN_TTL: 60
       REFRESH_TOKEN_TTL: 43200
@@ -60,12 +60,12 @@ services:
   ml-worker:
     build: ./ml-worker
     environment:
-      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672/
       REDIS_URL: redis://redis:6379/0
-      EMBEDDINGS_PATH: /data/embeddings_sample.h5
-      BOOK_PARQUET: /data/goodreads_sample.parquet
-      MOVIE_PARQUET: /data/tmdb_sample.parquet
-      DATABASE_URL: postgres://recly:recly_pass@postgres:5432/recly_db?sslmode=disable
+      EMBEDDINGS_PATH: /data/embeddings_2k.h5
+      BOOK_PARQUET: /data/goodreads_2k.parquet
+      MOVIE_PARQUET: /data/tmdb_2k.parquet
+      DATABASE_URL: postgres://${POSTGRES_USER:-recly}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-recly_db}?sslmode=disable
     volumes:
       - ./data:/data
     depends_on:
@@ -75,5 +75,35 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  meilisearch:
+    image: getmeili/meilisearch:v1.10
+    ports:
+      - "7700:7700"
+    volumes:
+      - meili_data:/meili_data
+    environment:
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:-CHANGE_ME}
+      MEILI_ENV: development
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7700/health"]
+      interval: 10s
+      retries: 5
+    restart: unless-stopped
+
+  indexer:
+    build: ./indexer
+    environment:
+      MEILI_URL: http://meilisearch:7700
+      MEILI_KEY: ${MEILI_MASTER_KEY:-CHANGE_ME}
+      BOOK_PARQUET: /data/goodreads_2k.parquet
+      MOVIE_PARQUET: /data/tmdb_2k.parquet
+      PYTHONUNBUFFERED: 1
+    depends_on:
+      meilisearch:
+        condition: service_healthy
+    volumes:
+      - ./data:/data:ro
+
 volumes:
   pgdata:
+  meili_data:

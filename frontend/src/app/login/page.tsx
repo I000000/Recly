@@ -16,8 +16,10 @@ export default function LoginPage() {
     e.preventDefault();
     try {
       const res = await api.post('/api/auth/login', { email, password });
-      document.cookie = `token=${res.data.access_token}; path=/; max-age=3600`; // 1 час
-      localStorage.setItem('token', res.data.access_token);
+      const token = res.data.access_token;
+      localStorage.setItem('token', token);
+      // Сохраняем в cookie, чтобы proxy видел авторизацию
+      document.cookie = `token=${token}; path=/; max-age=3600`;
       router.push('/');
     } catch (err) {
       alert('Invalid credentials');
@@ -34,6 +36,12 @@ export default function LoginPage() {
             <Input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
             <Button type="submit" className="w-full">Log in</Button>
           </form>
+          <p className="mt-4 text-sm text-center">
+            Don't have an account?{' '}
+            <a href="/register" className="text-primary hover:underline">
+              Sign up
+            </a>
+          </p>
         </CardContent>
       </Card>
     </div>

@@ -4,8 +4,19 @@ import type { NextRequest } from 'next/server';
 export function proxy(request: NextRequest) {
   const token = request.cookies.get('token')?.value;
 
-  // Если нет токена и это не публичная страница → редирект на /login
-  if (!token && !request.nextUrl.pathname.startsWith('/login') && !request.nextUrl.pathname.startsWith('/register') && !request.nextUrl.pathname.startsWith('/onboarding')) {
+  // Разрешаем доступ к статическим данным без авторизации
+  if (request.nextUrl.pathname.startsWith('/data/')) {
+    return NextResponse.next();
+  }
+
+  // Публичные страницы, доступные без токена
+  const isPublicPage =
+    request.nextUrl.pathname.startsWith('/login') ||
+    request.nextUrl.pathname.startsWith('/register') ||
+    request.nextUrl.pathname.startsWith('/onboarding');
+
+  // Если нет токена и страница не публичная → отправляем на /login
+  if (!token && !isPublicPage) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 

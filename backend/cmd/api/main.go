@@ -60,14 +60,16 @@ func main() {
 	authSvc := service.NewAuthService(userRepo, tokenRepo, cfg.JWTSecret, cfg.AccessTokenTTL, cfg.RefreshTokenTTL)
 	libSvc := service.NewLibraryService(libRepo)
 	recSvc := service.NewRecommendationService(recRepo, publisher, cache, libSvc)
+	searchSvc := service.NewSearchService("http://meilisearch:7700", "aSecretMasterKey")
 
 	// Хэндлеры
 	authH := handler.NewAuthHandler(authSvc)
 	libH := handler.NewLibraryHandler(libSvc)
 	recH := handler.NewRecommendationHandler(recSvc)
 	userH := handler.NewUserHandler()
+	searchH := handler.NewSearchHandler(searchSvc)
 
-	r := router.Setup(authH, libH, recH, userH, cfg.JWTSecret)
+	r := router.Setup(authH, libH, recH, userH, searchH, cfg.JWTSecret)
 
 	srv := &http.Server{Addr: ":" + cfg.ServerPort, Handler: r}
 	go func() {

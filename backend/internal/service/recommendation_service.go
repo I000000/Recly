@@ -30,26 +30,17 @@ func NewRecommendationService(
 }
 
 func (s *RecommendationService) Request(ctx context.Context, userID string, selectedIDs []string, direction string, weights map[string]float64) (string, error) {
-	// Если список пуст – берём любимые книги или фильмы пользователя
 	log.Println("DEBUG: Request called, libSvc is", s.libSvc)
+
+	// Если список пуст – собираем все любимые книги И фильмы как составные ключи
 	if len(selectedIDs) == 0 {
-		switch direction {
-		case "book_to_movie", "book_to_book":
-			books, err := s.libSvc.GetBooks(ctx, userID)
-			if err != nil {
-				return "", err
-			}
-			for _, b := range books {
-				selectedIDs = append(selectedIDs, b.BookID)
-			}
-		case "movie_to_book", "movie_to_movie":
-			movies, err := s.libSvc.GetMovies(ctx, userID)
-			if err != nil {
-				return "", err
-			}
-			for _, m := range movies {
-				selectedIDs = append(selectedIDs, m.MovieID)
-			}
+		books, _ := s.libSvc.GetBooks(ctx, userID)
+		movies, _ := s.libSvc.GetMovies(ctx, userID)
+		for _, b := range books {
+			selectedIDs = append(selectedIDs, "book_"+b.BookID)
+		}
+		for _, m := range movies {
+			selectedIDs = append(selectedIDs, "movie_"+m.MovieID)
 		}
 		if len(selectedIDs) == 0 {
 			return "", errors.New("no liked items to recommend from")
@@ -61,7 +52,7 @@ func (s *RecommendationService) Request(ctx context.Context, userID string, sele
 	msg := rabbitmq.TaskMessage{
 		TaskID:      taskID,
 		UserID:      userID,
-		SelectedIDs: selectedIDs,
+		SelectedIDs: selectedIDs, // составные ключи: "book_...", "movie_..."
 		Direction:   direction,
 		Weights:     weights,
 	}
@@ -70,6 +61,7 @@ func (s *RecommendationService) Request(ctx context.Context, userID string, sele
 	}
 	// Сохраняем начальный статус в кэше
 	if err := s.cache.SetResult(ctx, taskID, redis.RecommendationResult{Status: "pending"}, 30*time.Minute); err != nil {
+		// не фатально, логируем
 	}
 	// Запись в историю БД
 	wJSON, _ := json.Marshal(weights)
@@ -95,7 +87,7 @@ func (s *RecommendationService) GetResult(ctx context.Context, taskID string) (*
 	// Если в Redis нет, ищем в истории БД
 	history, err := s.repo.GetHistoryByTaskID(ctx, taskID)
 	if err == nil && history != nil && history.Result != "" {
-		// Парсим JSON-массив ID фильмов из поля result
+		// Парсим JSON-массив ID фильмов/книг из поля result
 		var movieIDs []string
 		if err := json.Unmarshal([]byte(history.Result), &movieIDs); err == nil {
 			return &redis.RecommendationResult{Status: "done", Movies: movieIDs}, nil

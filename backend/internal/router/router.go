@@ -11,6 +11,7 @@ func Setup(
 	libH *handler.LibraryHandler,
 	recH *handler.RecommendationHandler,
 	userH *handler.UserHandler,
+	searchH *handler.SearchHandler,
 	secret string,
 ) *gin.Engine {
 	r := gin.New()
@@ -35,6 +36,8 @@ func Setup(
 			protected.POST("/movie/:id/like", libH.AddMovie)
 			protected.DELETE("/movie/:id/like", libH.RemoveMovie)
 			protected.GET("/user/library/movies", libH.GetMovies)
+			protected.GET("/search", searchH.Search)
+			protected.GET("/items/batch", searchH.BatchGetItems)
 
 			// рекомендации
 			protected.POST("/recommend", recH.Request)
@@ -42,11 +45,10 @@ func Setup(
 			protected.POST("/recommendations/save", recH.Save)
 			protected.DELETE("/recommendations/:id", recH.DeleteSaved)
 			protected.GET("/user/recommendations/saved", recH.GetSaved)
+			protected.GET("/result/:taskId", recH.GetResult)
 
 			// профиль
 			protected.GET("/user/profile", userH.Profile)
-
-			protected.GET("/result/:taskId", recH.GetResult)
 		}
 	}
 	return r

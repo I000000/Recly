@@ -17,6 +17,10 @@ export default function RegisterPage() {
     e.preventDefault();
     try {
       await api.post('/api/auth/register', { email, password, name });
+      const res = await api.post('/api/auth/login', { email, password });
+      const token = res.data.access_token;
+      localStorage.setItem('token', token);
+      document.cookie = `token=${token}; path=/; max-age=3600`;
       router.push('/onboarding');
     } catch (err) {
       alert('Registration failed');
@@ -35,7 +39,10 @@ export default function RegisterPage() {
             <Button type="submit" className="w-full">Register</Button>
           </form>
           <p className="mt-4 text-sm text-center">
-            Already have an account? <a href="/login" className="text-primary">Log in</a>
+            Already have an account?{' '}
+            <a href="/login" className="text-primary hover:underline">
+              Log in
+            </a>
           </p>
         </CardContent>
       </Card>
