@@ -62,9 +62,9 @@ services:
     environment:
       RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672/
       REDIS_URL: redis://redis:6379/0
-      EMBEDDINGS_PATH: /data/embeddings_2k.h5
-      BOOK_PARQUET: /data/goodreads_2k.parquet
-      MOVIE_PARQUET: /data/tmdb_2k.parquet
+      EMBEDDINGS_PATH: ${EMBEDDINGS_PATH:-/data/embeddings_10k.h5}
+      BOOK_PARQUET: ${BOOK_PARQUET:-/data/goodreads_5k.parquet}
+      MOVIE_PARQUET: ${MOVIE_PARQUET:-/data/tmdb_5k.parquet}
       DATABASE_URL: postgres://${POSTGRES_USER:-recly}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-recly_db}?sslmode=disable
     volumes:
       - ./data:/data
@@ -95,8 +95,8 @@ services:
     environment:
       MEILI_URL: http://meilisearch:7700
       MEILI_KEY: ${MEILI_MASTER_KEY:-CHANGE_ME}
-      BOOK_PARQUET: /data/goodreads_2k.parquet
-      MOVIE_PARQUET: /data/tmdb_2k.parquet
+      BOOK_PARQUET: ${BOOK_PARQUET:-/data/goodreads_5k.parquet}
+      MOVIE_PARQUET: ${MOVIE_PARQUET:-/data/tmdb_5k.parquet}
       PYTHONUNBUFFERED: 1
     depends_on:
       meilisearch:

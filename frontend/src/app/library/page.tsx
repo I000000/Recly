@@ -14,41 +14,52 @@ export default function LibraryPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [libraryQuery, setLibraryQuery] = useState('');
 
-  // Получаем ID любимых элементов
-  const { data: likedBooks = [], isLoading: booksLoading } = useQuery<string[]>({
-    queryKey: ['likedBooks'],
-    queryFn: async () => (await api.get('/api/user/library/books')).data.books.map((b: any) => b.book_id),
-    staleTime: 1000 * 60 * 30,
-  });
+// Получаем ID любимых элементов с ленивой загрузкой и долгим хранением кэша
+const { data: likedBooks = [] } = useQuery<string[]>({
+  queryKey: ['likedBooks'],
+  queryFn: async () => (await api.get('/api/user/library/books')).data.books.map((b: any) => b.book_id),
+  staleTime: 1000 * 60 * 30,   // 30 минут считаются свежими
+  gcTime: 60 * 60 * 1000,      // час хранятся в памяти после ухода с вкладки
+  enabled: activeTab === 'books',
+});
 
-  const { data: likedMovies = [], isLoading: moviesLoading } = useQuery<string[]>({
-    queryKey: ['likedMovies'],
-    queryFn: async () => (await api.get('/api/user/library/movies')).data.movies.map((m: any) => m.movie_id),
-    staleTime: 1000 * 60 * 30,
-  });
+const { data: likedMovies = [] } = useQuery<string[]>({
+  queryKey: ['likedMovies'],
+  queryFn: async () => (await api.get('/api/user/library/movies')).data.movies.map((m: any) => m.movie_id),
+  staleTime: 1000 * 60 * 30,
+  gcTime: 60 * 60 * 1000,
+  enabled: activeTab === 'movies',
+});
 
-  const ids = activeTab === 'movies' ? likedMovies : likedBooks;
-  const type = activeTab === 'movies' ? 'movie' : 'book';
+const ids = activeTab === 'movies' ? likedMovies : likedBooks;
+const type = activeTab === 'movies' ? 'movie' : 'book';
 
-  // Загружаем метаданные пачкой
-  const { data: batchMeta = {}, isLoading: metaLoading, error: metaError } = useQuery({
-    queryKey: ['batchMeta', ids, type],
-    queryFn: async () => {
-      if (ids.length === 0) return {};
-      const res = await api.get(`/api/items/batch?ids=${ids.join(',')}&type=${type}`);
-      const map: Record<string, any> = {};
-      (res.data.items || []).forEach((item: any) => {
-        map[item.id] = {
-          id: item.id,
-          title: item.title,
-          image: item.image,
-          type: item.type,
-        };
-      });
-      return map;
-    },
-    enabled: ids.length > 0,
-  });
+// Метаданные пачкой
+const {
+  data: batchMeta = {},
+  isLoading: metaLoading,
+  error: metaError,
+} = useQuery({
+  queryKey: ['batchMeta', ids, type],
+  queryFn: async () => {
+    if (ids.length === 0) return {};
+    const res = await api.get(`/api/items/batch?ids=${ids.join(',')}&type=${type}`);
+    const map: Record<string, any> = {};
+    (res.data.items || []).forEach((item: any) => {
+      map[item.id] = {
+        id: item.id,
+        title: item.title,
+        image: item.image,
+        type: item.type,
+      };
+    });
+    return map;
+  },
+  enabled: ids.length > 0,
+  staleTime: 30 * 60 * 1000,
+  gcTime: 60 * 60 * 1000,
+  placeholderData: (prev) => prev,
+});
 
   // Фильтрация на клиенте
   const filteredIds = libraryQuery.trim()
@@ -63,6 +74,7 @@ export default function LibraryPage() {
       setShowAddModal(false);
     },
   });
+  
   const addMovie = useMutation({
     mutationFn: (movieId: string) => api.post(`/api/movie/${movieId}/like`),
     onSuccess: () => {
@@ -71,7 +83,9 @@ export default function LibraryPage() {
     },
   });
 
-  const isLoading = booksLoading || moviesLoading || metaLoading;
+  const isLoading = metaLoading;
+
+  console.log('batchMeta sample:', Object.values(batchMeta)[0]);
 
   return (
     <div className="min-h-screen pb-20">

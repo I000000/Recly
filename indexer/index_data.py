@@ -104,6 +104,6 @@ print(f"All movies processed ({len(documents)} total).", flush=True)
 # --- НАСТРОЙКИ ---
 print("Updating index settings...", flush=True)
 client.index('items').update_searchable_attributes(['title'])
-client.index('items').update_filterable_attributes(['type'])
+client.index('items').update_filterable_attributes(['id', 'type'])
 client.index('items').update_displayed_attributes(['*'])
 print("Indexing completed.", flush=True)

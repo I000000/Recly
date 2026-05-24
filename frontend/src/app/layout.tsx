@@ -7,7 +7,7 @@ const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   title: 'Recly',
-  description: 'Discover movies and books recommended just for you',
+  description: 'Discover movies and books recommendations just for you',
 };
 
 import MobileNav from '@/components/mobile-nav';

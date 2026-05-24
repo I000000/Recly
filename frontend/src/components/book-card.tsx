@@ -14,7 +14,7 @@ export default function BookCard({ book }: { book: any }) {
             }}
           />
         )}
-        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-3 pt-12">
+        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent p-3 pt-22">
           <h3 className="text-white text-sm font-semibold leading-snug line-clamp-2 drop-shadow-md">
             {book.title}
           </h3>
