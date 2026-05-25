@@ -14,7 +14,7 @@ export default function MobileNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-background border-t border-border z-50 lg:hidden">
+    <nav className="fixed bottom-0 left-0 right-0 bg-background border-t border-border z-50 md:hidden">
       <ul className="flex justify-around items-center h-16">
         {navItems.map((item) => {
           const isActive = pathname === item.href;

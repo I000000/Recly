@@ -94,7 +94,7 @@ export default function HomePage() {
       {isError && <p className="text-center py-20 text-destructive">{(error as any)?.message || 'Failed'}</p>}
 
       {cards.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 p-4">
+        <div className="grid grid-cols-2 sm:grid-cols-[repeat(auto-fill,minmax(225px,1fr))] gap-2 p-4">
           {cards.map((card: any) =>
             tab === 'movies' ? (
               <MovieCard

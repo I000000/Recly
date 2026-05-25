@@ -72,7 +72,7 @@ export default function FullHistoryPage() {
       {recommendedIds.length === 0 ? (
         <p className="text-muted-foreground text-center py-20">No recommendations yet.</p>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 p-4">
+        <div className="grid grid-cols-2 sm:grid-cols-[repeat(auto-fill,minmax(225px,1fr))] gap-2 p-4">
           {recommendedIds.map(id => {
             const item = itemsMap[id];
             if (!item) return null;
@@ -80,11 +80,13 @@ export default function FullHistoryPage() {
               <MovieCard
                 key={id}
                 movie={{ movie_id: id, title: item.title, poster_url: item.image }}
+                aspectRatio="2/3"
               />
             ) : (
               <BookCard
                 key={id}
                 book={{ book_id: id, title: item.title, image_url: item.image }}
+                aspectRatio="2/3"
               />
             );
           })}

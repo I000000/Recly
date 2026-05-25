@@ -136,7 +136,7 @@ const {
           {libraryQuery.trim() ? 'No matches found.' : `No ${activeTab} in your library yet.`}
         </p>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 p-4">
+        <div className="grid grid-cols-2 sm:grid-cols-[repeat(auto-fill,minmax(225px,1fr))] gap-2 p-4">
           {filteredIds.map(id => {
             const item = batchMeta[id];
             if (!item) return null;
