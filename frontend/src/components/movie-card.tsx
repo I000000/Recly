@@ -1,10 +1,10 @@
 import Link from 'next/link';
 
-export default function MovieCard({ movie }: { movie: any }) {
-  console.log('MovieCard props:', movie);
+export default function MovieCard({ movie, aspectRatio }: { movie: any; aspectRatio?: string }) {
+  const aspect = aspectRatio || '2/3';
   return (
     <Link href={`/movie/${movie.movie_id}`} className="block">
-      <div className="relative border rounded-xl overflow-hidden shadow-md aspect-[2/3] group">
+      <div className={`relative border rounded-xl overflow-hidden shadow-md aspect-[${aspect}] group`}>
         {movie.poster_url && (
           <img
             src={movie.poster_url}

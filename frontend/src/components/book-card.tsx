@@ -1,9 +1,10 @@
 import Link from 'next/link';
 
-export default function BookCard({ book }: { book: any }) {
+export default function BookCard({ book, aspectRatio }: { book: any; aspectRatio?: string }) {
+  const aspect = aspectRatio || '3/4';
   return (
     <Link href={`/book/${book.book_id}`} className="block">
-      <div className="relative border rounded-xl overflow-hidden shadow-md aspect-[3/4] group">
+      <div className={`relative border rounded-xl overflow-hidden shadow-md aspect-[${aspect}] group`}>
         {book.image_url && (
           <img
             src={book.image_url}

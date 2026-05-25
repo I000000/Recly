@@ -230,10 +230,15 @@ func (s *SearchService) GetItems(ids []string, itemType string) ([]domain.ItemDe
 	for i, id := range ids {
 		filterParts[i] = fmt.Sprintf("id = %q", id)
 	}
-	filter := fmt.Sprintf("type = %q AND (%s)", itemType, strings.Join(filterParts, " OR "))
+
+	var filter string
+	if itemType == "all" || itemType == "" {
+		filter = strings.Join(filterParts, " OR ")
+	} else {
+		filter = fmt.Sprintf("type = %q AND (%s)", itemType, strings.Join(filterParts, " OR "))
+	}
 
 	url := fmt.Sprintf("%s/indexes/items/search", s.meiliURL)
-
 	payload := map[string]interface{}{
 		"q":      "",
 		"limit":  len(ids),

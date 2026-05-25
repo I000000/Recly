@@ -79,21 +79,24 @@ func (s *RecommendationService) Request(ctx context.Context, userID string, sele
 }
 
 func (s *RecommendationService) GetResult(ctx context.Context, taskID string) (*redis.RecommendationResult, error) {
-	// Пробуем Redis
+	// 1. Пробуем Redis
 	result, err := s.cache.GetResult(ctx, taskID)
 	if err == nil && result != nil {
+		// 2. Если результат готов — сразу сохраняем в историю БД
+		if result.Status == "done" && len(result.Movies) > 0 {
+			moviesJSON, _ := json.Marshal(result.Movies)
+			_ = s.repo.UpdateResult(ctx, taskID, string(moviesJSON))
+		}
 		return result, nil
 	}
-	// Если в Redis нет, ищем в истории БД
+	// 3. Если в Redis нет — ищем в БД
 	history, err := s.repo.GetHistoryByTaskID(ctx, taskID)
 	if err == nil && history != nil && history.Result != "" {
-		// Парсим JSON-массив ID фильмов/книг из поля result
 		var movieIDs []string
 		if err := json.Unmarshal([]byte(history.Result), &movieIDs); err == nil {
 			return &redis.RecommendationResult{Status: "done", Movies: movieIDs}, nil
 		}
 	}
-	// Если ничего не нашли, возвращаем pending
 	return &redis.RecommendationResult{Status: "pending"}, nil
 }
 

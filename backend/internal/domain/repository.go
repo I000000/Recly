@@ -33,4 +33,5 @@ type RecommendationRepository interface {
 	SaveRecommendation(ctx context.Context, rec *SavedRecommendation) error
 	DeleteSavedRecommendation(ctx context.Context, id string) error
 	GetSavedRecommendations(ctx context.Context, userID string) ([]SavedRecommendation, error)
+	UpdateResult(ctx context.Context, taskID string, resultJSON string) error // ← добавить
 }

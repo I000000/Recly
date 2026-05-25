@@ -36,6 +36,13 @@ func (r *RecommendationRepo) SaveHistory(ctx context.Context, entry *domain.Reco
 	).Scan(&entry.ID, &entry.CreatedAt)
 }
 
+func (r *RecommendationRepo) UpdateResult(ctx context.Context, taskID string, resultJSON string) error {
+	_, err := r.pool.Exec(ctx,
+		`UPDATE user_recommendation_history SET result = $1::jsonb WHERE task_id = $2`,
+		resultJSON, taskID)
+	return err
+}
+
 func (r *RecommendationRepo) GetHistory(ctx context.Context, userID string) ([]domain.RecommendationHistory, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT id, user_id, task_id, selected_ids, direction, weights, result, created_at

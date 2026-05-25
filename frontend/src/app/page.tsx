@@ -1,55 +1,58 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import MovieCard from '@/components/movie-card';
 import BookCard from '@/components/book-card';
 
 type Tab = 'movies' | 'books';
 
-async function fetchRecommendations(tab: Tab) {
-  const direction = tab === 'movies' ? 'book_to_movie' : 'movie_to_book';
-  // 1. Создаём задачу
-  const { data: task } = await api.post('/api/recommend', {
-    selected_ids: [],
-    direction,
-    weights: { genre: 0.3, text: 0.4, image: 0.3 },
-  });
-  const taskId = task.task_id;
-
-  // 2. Опрос результата
-  let result: any;
-  while (true) {
-    const { data: poll } = await api.get(`/api/result/${taskId}`);
-    if (poll.status === 'done' || poll.status === 'error') {
-      result = poll;
-      break;
-    }
-    await new Promise(r => setTimeout(r, 1000));
-  }
-
-  if (result.status !== 'done' || !result.movies?.length) {
-    throw new Error('No recommendations yet.');
-  }
-
-  // 3. Загружаем метаданные
-  const ids = result.movies;
-  const type = tab === 'movies' ? 'movie' : 'book';
-  const { data: batch } = await api.get(`/api/items/batch?ids=${ids.join(',')}&type=${type}`);
-  const items = batch.items || [];
-
-  // Приводим к нужным полям
-  return items.map((item: any) => ({
-    id: item.id,
-    title: item.title,
-    poster_url: item.image || '',
-    image_url: item.image || '',
-  }));
-}
-
 export default function HomePage() {
   const [tab, setTab] = useState<Tab>('movies');
+  const queryClient = useQueryClient();
+
+  // Функция загрузки рекомендаций теперь внутри компонента
+  const fetchRecommendations = async (tab: Tab) => {
+    const direction = tab === 'movies' ? 'book_to_movie' : 'movie_to_book';
+    const { data: task } = await api.post('/api/recommend', {
+      selected_ids: [],
+      direction,
+      weights: { genre: 0.3, text: 0.4, image: 0.3 },
+    });
+    const taskId = task.task_id;
+
+    // Ожидание готовности результата
+    let result: any;
+    while (true) {
+      const { data: poll } = await api.get(`/api/result/${taskId}`);
+      if (poll.status === 'done' || poll.status === 'error') {
+        result = poll;
+        break;
+      }
+      await new Promise(r => setTimeout(r, 1000));
+    }
+
+    if (result.status !== 'done' || !result.movies?.length) {
+      throw new Error('No recommendations yet.');
+    }
+
+    // *** Инвалидация кэша истории после получения новой рекомендации ***
+    queryClient.invalidateQueries({ queryKey: ['history'] });
+
+    // Загрузка метаданных
+    const ids = result.movies;
+    const type = tab === 'movies' ? 'movie' : 'book';
+    const { data: batch } = await api.get(`/api/items/batch?ids=${ids.join(',')}&type=${type}`);
+    const items = batch.items || [];
+
+    return items.map((item: any) => ({
+      id: item.id,
+      title: item.title,
+      poster_url: item.image || '',
+      image_url: item.image || '',
+    }));
+  };
 
   const {
     data: cards = [],
@@ -59,10 +62,10 @@ export default function HomePage() {
   } = useQuery({
     queryKey: ['homeRecommendations', tab],
     queryFn: () => fetchRecommendations(tab),
-    staleTime: 15 * 60 * 1000, // 15 минут данные считаются свежими
-    gcTime: 30 * 60 * 1000,    // ещё 30 минут хранятся в кэше после неиспользования
-    retry: 1,                  // одна повторная попытка при ошибке
-    refetchOnWindowFocus: false, // не перезапрашивать при возврате в окно
+    staleTime: 15 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    retry: 1,
+    refetchOnWindowFocus: false,
   });
 
   return (
