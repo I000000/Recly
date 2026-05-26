@@ -4,7 +4,10 @@ export default function MovieCard({ movie, aspectRatio }: { movie: any; aspectRa
   const aspect = aspectRatio || '2/3';
   return (
     <Link href={`/movie/${movie.movie_id}`} className="block">
-      <div className={`relative border rounded-xl overflow-hidden shadow-md aspect-[${aspect}] group`}>
+      <div
+        className="relative border rounded-xl overflow-hidden shadow-md group"
+        style={{ aspectRatio: aspect }}
+      >
         {movie.poster_url && (
           <img
             src={movie.poster_url}

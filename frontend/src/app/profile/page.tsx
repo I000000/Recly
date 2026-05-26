@@ -183,35 +183,41 @@ export default function ProfilePage() {
     const nextItem = nextId ? historyMeta[nextId] : null;
   
     return (
-      <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-        {visibleIds.map(id => renderItem(id))}
-        {hasMore && nextItem && (
-          <div
-            onClick={() => router.push('/history')}
-            className="flex-shrink-0 w-36 relative rounded-xl overflow-hidden border shadow-md group cursor-pointer"
-          >
-            <div className="w-full aspect-[2/3] relative">
-              {nextItem.image ? (
-                <img
-                  src={nextItem.image}
-                  alt={nextItem.title || ''}
-                  className="absolute inset-0 w-full h-full object-cover"
-                />
-              ) : (
-                <div className="absolute inset-0 bg-muted flex items-center justify-center text-xs">No poster</div>
-              )}
-              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent p-3 pt-22">
-                <h3 className="text-white text-sm font-semibold leading-snug line-clamp-2 drop-shadow-md">
-                  {nextItem.title || 'Untitled'}
-                </h3>
+      <div className="scroll-container pb-2">
+        <div className="flex gap-2 min-w-max">
+          {visibleIds.map(id => (
+            <div key={id} className="w-36 flex-shrink-0">
+              {renderItem(id)}
+            </div>
+          ))}
+          {hasMore && nextItem && (
+            <div
+              onClick={() => router.push('/history')}
+              className="flex-shrink-0 w-36 relative rounded-xl overflow-hidden border shadow-md group cursor-pointer"
+            >
+              <div className="w-full aspect-[2/3] relative">
+                {nextItem.image ? (
+                  <img
+                    src={nextItem.image}
+                    alt={nextItem.title || ''}
+                    className="absolute inset-0 w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="absolute inset-0 bg-muted flex items-center justify-center text-xs">No poster</div>
+                )}
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent p-3 pt-22">
+                  <h3 className="text-white text-sm font-semibold leading-snug line-clamp-2 drop-shadow-md">
+                    {nextItem.title || 'Untitled'}
+                  </h3>
+                </div>
+              </div>
+              <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-1 text-white opacity-100 group-hover:opacity-90 transition-opacity">
+                <BookOpen className="w-6 h-6" />
+                <span className="text-xs font-semibold">See More</span>
               </div>
             </div>
-            <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-1 text-white opacity-100 group-hover:opacity-90 transition-opacity">
-              <BookOpen className="w-6 h-6" />
-              <span className="text-xs font-semibold">See More</span>
-            </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     );
   };
@@ -238,13 +244,19 @@ export default function ProfilePage() {
     if (items.length === 0) {
       return <p className="text-muted-foreground py-4">{emptyMessage}</p>;
     }
-
+  
     const displayedItems = showAll ? items : items.slice(0, 10);
     return (
       <div>
         {!showAll ? (
-          <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-            {displayedItems.map((item, idx) => renderItem(item, idx))}
+          <div className="scroll-container pb-2">
+            <div className="flex gap-2 min-w-max">
+              {displayedItems.map((item, idx) => (
+                <div key={item.id ?? idx} className="w-36 flex-shrink-0">
+                  {renderItem(item, idx)}
+                </div>
+              ))}
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
@@ -262,13 +274,13 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="min-h-screen pb-20 mx-auto">
+    <div className="min-h-screen pb-20 mx-auto max-w-full overflow-x-hidden">
       <div className="px-4 pt-6 pb-2">
         <h1 className="text-2xl font-bold tracking-tight">Your Profile</h1>
       </div>
-
+  
       <div className="px-4 py-4">
-        <div className="grid grid-cols-2 md:grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-3 md:gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
           <div className="bg-secondary/30 rounded-xl p-3 sm:p-4 flex items-center gap-2 sm:gap-3">
             <Film className="w-5 h-5 sm:w-6 sm:h-6 text-primary flex-shrink-0" />
             <div className="min-w-0">
@@ -299,7 +311,7 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
-
+  
       <div className="px-4 py-4">
         <h2 className="text-xl font-semibold mb-4">Saved Recommendations</h2>
         {renderScrollableSection(
@@ -330,8 +342,8 @@ export default function ProfilePage() {
         )}
       </div>
 
-      <div className="px-4 pb-8">
-        <Button onClick={handleLogout} variant="destructive" className="w-full">
+      <div className="px-4 pb-8 flex justify-center sm:justify-start">
+        <Button onClick={handleLogout} variant="destructive" className="w-full sm:w-auto sm:min-w-[200px]">
           Log out
         </Button>
       </div>

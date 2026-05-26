@@ -4,7 +4,10 @@ export default function BookCard({ book, aspectRatio }: { book: any; aspectRatio
   const aspect = aspectRatio || '3/4';
   return (
     <Link href={`/book/${book.book_id}`} className="block">
-      <div className={`relative border rounded-xl overflow-hidden shadow-md aspect-[${aspect}] group`}>
+      <div
+        className="relative border rounded-xl overflow-hidden shadow-md group"
+        style={{ aspectRatio: aspect }}
+      >
         {book.image_url && (
           <img
             src={book.image_url}
