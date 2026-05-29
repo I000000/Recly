@@ -40,7 +40,7 @@ def normalize(vec):
     norm = np.linalg.norm(vec)
     return vec / norm if norm > 1e-8 else vec
 
-def recommend(selected_ids, weights, direction):
+def recommend(selected_ids, weights, direction, exclude_ids=None):
     w_g = weights.get('genre', 0.3)
     w_t = weights.get('text', 0.4)
     w_i = weights.get('image', 0.3)
@@ -75,13 +75,22 @@ def recommend(selected_ids, weights, direction):
 
     if direction.endswith('movie'):
         tgt_text, tgt_genre, tgt_img, tgt_ids = movie_text, movie_genre, movie_image, movie_ids
+        id_to_idx = movie_id_to_idx
     else:
         tgt_text, tgt_genre, tgt_img, tgt_ids = book_text, book_genre, book_image, book_ids
+        id_to_idx = book_id_to_idx
 
     sim_text  = cosine_similarity(user_text.reshape(1,-1), tgt_text).flatten()
     sim_genre = cosine_similarity(user_genre.reshape(1,-1), tgt_genre).flatten()
     sim_img   = cosine_similarity(user_image.reshape(1,-1), tgt_img).flatten()
     combined  = w_g*sim_genre + w_t*sim_text + w_i*sim_img
+
+    if exclude_ids:
+        for eid in exclude_ids:
+            idx = id_to_idx.get(eid)
+            if idx is not None:
+                combined[idx] = -1e9
+
     top = np.argsort(combined)[::-1][:10]
     return [tgt_ids[i] for i in top]
 
@@ -108,11 +117,35 @@ def on_message(ch, method, properties, body):
         direction = data.get('direction', 'book_to_movie')
         weights = data.get('weights', {})
         selected_ids = data['selected_ids']
+        user_id = data.get('user_id')
+
+        exclude_set = set()
+
+        for sid in selected_ids:
+            if sid.startswith('book_'):
+                exclude_set.add(sid[5:])
+            elif sid.startswith('movie_'):
+                exclude_set.add(sid[6:])
+
+        if user_id:
+            try:
+                conn = psycopg2.connect(DATABASE_URL)
+                cur = conn.cursor()
+                cur.execute("SELECT book_id FROM user_liked_books WHERE user_id = %s", (user_id,))
+                for row in cur.fetchall():
+                    exclude_set.add(row[0])
+                cur.execute("SELECT movie_id FROM user_liked_movies WHERE user_id = %s", (user_id,))
+                for row in cur.fetchall():
+                    exclude_set.add(row[0])
+                cur.close()
+                conn.close()
+            except Exception as e:
+                print(f"Warning: could not load user likes: {e}")
 
         if not selected_ids:
             result = {"status": "error", "error": "No selected items"}
         else:
-            result = {"status": "done", "movies": recommend(selected_ids, weights, direction)}
+            result = {"status": "done", "movies": recommend(selected_ids, weights, direction, exclude_ids=exclude_set)}
 
         redis_client.set(f"rec:{task_id}", json.dumps(result), ex=1800)
         print(f"Task {task_id} completed. Recommendations are ready.")
