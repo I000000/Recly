@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState, useEffect, useRef } from 'react';
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import MovieCard from '@/components/movie-card';
 import BookCard from '@/components/book-card';
@@ -11,18 +11,20 @@ type Tab = 'movies' | 'books';
 export default function HomePage() {
   const [tab, setTab] = useState<Tab>('movies');
   const queryClient = useQueryClient();
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
-  // Функция загрузки рекомендаций теперь внутри компонента
-  const fetchRecommendations = async (tab: Tab) => {
+  const fetchRecommendations = async ({ pageParam }: { pageParam: string[] }) => {
+    const excludeIds = pageParam ?? [];
     const direction = tab === 'movies' ? 'book_to_movie' : 'movie_to_book';
+
     const { data: task } = await api.post('/api/recommend', {
       selected_ids: [],
       direction,
       weights: { genre: 0.3, text: 0.4, image: 0.3 },
+      exclude_ids: excludeIds,
     });
     const taskId = task.task_id;
 
-    // Ожидание готовности результата
     let result: any;
     while (true) {
       const { data: poll } = await api.get(`/api/result/${taskId}`);
@@ -34,39 +36,66 @@ export default function HomePage() {
     }
 
     if (result.status !== 'done' || !result.movies?.length) {
-      throw new Error('No recommendations yet.');
+      return { cards: [], excludeIds };
     }
 
-    // *** Инвалидация кэша истории после получения новой рекомендации ***
     queryClient.invalidateQueries({ queryKey: ['history'] });
 
-    // Загрузка метаданных
     const ids = result.movies;
     const type = tab === 'movies' ? 'movie' : 'book';
     const { data: batch } = await api.get(`/api/items/batch?ids=${ids.join(',')}&type=${type}`);
     const items = batch.items || [];
 
-    return items.map((item: any) => ({
+    const newCards = items.map((item: any) => ({
       id: item.id,
       title: item.title,
       poster_url: item.image || '',
       image_url: item.image || '',
     }));
+
+    const newExcludeIds = [...excludeIds, ...newCards.map((c: any) => c.id)];
+
+    return { cards: newCards, excludeIds: newExcludeIds };
   };
 
   const {
-    data: cards = [],
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
     isLoading,
     isError,
     error,
-  } = useQuery({
+  } = useInfiniteQuery({
     queryKey: ['homeRecommendations', tab],
-    queryFn: () => fetchRecommendations(tab),
-    staleTime: 15 * 60 * 1000,
-    gcTime: 30 * 60 * 1000,
-    retry: 1,
-    refetchOnWindowFocus: false,
+    queryFn: fetchRecommendations,
+    initialPageParam: [] as string[],
+    getNextPageParam: (lastPage) => {
+      if (lastPage.cards.length === 0) return undefined;
+      return lastPage.excludeIds;
+    },
+    staleTime: 0,
   });
+
+  const cards = data?.pages.flatMap(page => page.cards) ?? [];
+
+  useEffect(() => {
+    if (!hasNextPage || isFetchingNextPage) return;
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          fetchNextPage();
+        }
+      },
+      { rootMargin: '200px' }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   return (
     <div className="min-h-screen pb-20">
@@ -123,6 +152,14 @@ export default function HomePage() {
         <p className="text-center py-20 text-muted-foreground">
           Add some items to your library to get recommendations.
         </p>
+      )}
+
+      <div ref={sentinelRef} className="h-1" />
+
+      {isFetchingNextPage && (
+        <div className="flex justify-center py-4">
+          <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        </div>
       )}
     </div>
   );

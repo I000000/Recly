@@ -9,29 +9,27 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-// TaskMessage – структура, которая отправляется в очередь
 type TaskMessage struct {
-	TaskID      string             `json:"task_id"`
-	UserID      string             `json:"user_id"`
-	SelectedIDs []string           `json:"selected_ids"`
-	Direction   string             `json:"direction"`
-	Weights     map[string]float64 `json:"weights"`
+	TaskID          string             `json:"task_id"`
+	UserID          string             `json:"user_id"`
+	SelectedIDs     []string           `json:"selected_ids"`
+	SelectedWeights map[string]float64 `json:"selected_weights,omitempty"`
+	ExcludeIDs      []string           `json:"exclude_ids,omitempty"`
+	Direction       string             `json:"direction"`
+	Weights         map[string]float64 `json:"weights"`
 }
 
-// Publisher определяет поведение публикации задач
 type Publisher interface {
 	PublishRecommendationTask(ctx context.Context, msg TaskMessage) error
 	Close() error
 }
 
-// AMQPPublisher реализует Publisher через RabbitMQ
 type AMQPPublisher struct {
 	conn    *amqp.Connection
 	channel *amqp.Channel
 	queue   amqp.Queue
 }
 
-// NewAMQPPublisher устанавливает соединение и объявляет очередь
 func NewAMQPPublisher(url string) (*AMQPPublisher, error) {
 	conn, err := amqp.Dial(url)
 	if err != nil {
@@ -42,7 +40,6 @@ func NewAMQPPublisher(url string) (*AMQPPublisher, error) {
 		conn.Close()
 		return nil, fmt.Errorf("rabbitmq channel: %w", err)
 	}
-	// Объявляем устойчивую очередь
 	q, err := ch.QueueDeclare(
 		"recommendation_tasks", // имя
 		true,                   // durable

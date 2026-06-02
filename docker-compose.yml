@@ -103,6 +103,8 @@ services:
         condition: service_healthy
     volumes:
       - ./data:/data:ro
+    profiles:
+      - manual
 
 volumes:
   pgdata:

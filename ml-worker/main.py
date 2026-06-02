@@ -1,4 +1,4 @@
-import os, json, signal, sys, time
+import os, json, signal, sys, time, random
 import numpy as np, pandas as pd, h5py
 import psycopg2, redis, pika
 from sklearn.metrics.pairwise import cosine_similarity
@@ -40,34 +40,39 @@ def normalize(vec):
     norm = np.linalg.norm(vec)
     return vec / norm if norm > 1e-8 else vec
 
-def recommend(selected_ids, weights, direction, exclude_ids=None):
+def recommend(selected_ids, weights, direction, exclude_ids=None, selected_weights=None):
     w_g = weights.get('genre', 0.3)
     w_t = weights.get('text', 0.4)
     w_i = weights.get('image', 0.3)
 
-    book_indices = []
-    movie_indices = []
-    for sid in selected_ids:
-        if sid.startswith('book_'):
-            idx = book_id_to_idx.get(sid[5:])
-            if idx is not None:
-                book_indices.append(idx)
-        elif sid.startswith('movie_'):
-            idx = movie_id_to_idx.get(sid[6:])
-            if idx is not None:
-                movie_indices.append(idx)
-
     user_text = np.zeros(book_text.shape[1])
     user_genre = np.zeros(book_genre.shape[1])
     user_image = np.zeros(book_image.shape[1])
-    for idx in book_indices:
-        user_text += book_text[idx]
-        user_genre += book_genre[idx]
-        user_image += book_image[idx]
-    for idx in movie_indices:
-        user_text += movie_text[idx]
-        user_genre += movie_genre[idx]
-        user_image += movie_image[idx]
+    weight_sum = 0.0
+
+    for sid in selected_ids:
+        w = selected_weights.get(sid, 1.0) if selected_weights else 1.0
+        if sid.startswith('book_'):
+            idx = book_id_to_idx.get(sid[5:])
+            if idx is not None:
+                user_text += w * book_text[idx]
+                user_genre += w * book_genre[idx]
+                user_image += w * book_image[idx]
+                weight_sum += w
+        elif sid.startswith('movie_'):
+            idx = movie_id_to_idx.get(sid[6:])
+            if idx is not None:
+                user_text += w * movie_text[idx]
+                user_genre += w * movie_genre[idx]
+                user_image += w * movie_image[idx]
+                weight_sum += w
+
+    if weight_sum > 0:
+        user_text /= weight_sum
+        user_genre /= weight_sum
+        user_image /= weight_sum
+    else:
+        pass
 
     user_text = normalize(user_text)
     user_genre = normalize(user_genre)
@@ -91,7 +96,7 @@ def recommend(selected_ids, weights, direction, exclude_ids=None):
             if idx is not None:
                 combined[idx] = -1e9
 
-    top = np.argsort(combined)[::-1][:10]
+    top = np.argsort(combined)[::-1][:30]
     return [tgt_ids[i] for i in top]
 
 def update_history(task_id, movies_json):
@@ -117,6 +122,7 @@ def on_message(ch, method, properties, body):
         direction = data.get('direction', 'book_to_movie')
         weights = data.get('weights', {})
         selected_ids = data['selected_ids']
+        selected_weights = data.get('selected_weights', {})
         user_id = data.get('user_id')
 
         exclude_set = set()
@@ -126,6 +132,9 @@ def on_message(ch, method, properties, body):
                 exclude_set.add(sid[5:])
             elif sid.startswith('movie_'):
                 exclude_set.add(sid[6:])
+
+        for eid in data.get('exclude_ids', []):
+            exclude_set.add(str(eid))
 
         if user_id:
             try:
@@ -142,10 +151,23 @@ def on_message(ch, method, properties, body):
             except Exception as e:
                 print(f"Warning: could not load user likes: {e}")
 
+        base_w = {
+            'text': weights.get('text', 0.4),
+            'genre': weights.get('genre', 0.3),
+            'image': weights.get('image', 0.3)
+        }
+        noise = {k: random.uniform(-0.05, 0.05) for k in base_w}
+        noisy = {k: max(0.0, base_w[k] + noise[k]) for k in base_w}
+        total = sum(noisy.values())
+        if total > 0:
+            noisy = {k: v / total for k, v in noisy.items()}
+        else:
+            noisy = base_w
+
         if not selected_ids:
             result = {"status": "error", "error": "No selected items"}
         else:
-            result = {"status": "done", "movies": recommend(selected_ids, weights, direction, exclude_ids=exclude_set)}
+            result = {"status": "done", "movies": recommend(selected_ids, noisy, direction, exclude_ids=exclude_set, selected_weights=selected_weights)}
 
         redis_client.set(f"rec:{task_id}", json.dumps(result), ex=1800)
         print(f"Task {task_id} completed. Recommendations are ready.")

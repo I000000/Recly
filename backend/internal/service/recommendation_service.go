@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
+	"math"
 	"time"
 
 	"github.com/I000000/recly/internal/domain"
@@ -29,18 +30,30 @@ func NewRecommendationService(
 	return &RecommendationService{repo: repo, publisher: pub, cache: cache, libSvc: libSvc}
 }
 
-func (s *RecommendationService) Request(ctx context.Context, userID string, selectedIDs []string, direction string, weights map[string]float64) (string, error) {
+func (s *RecommendationService) Request(ctx context.Context, userID string, selectedIDs []string, weights map[string]float64, excludeIDs []string, direction string) (string, error) {
 	log.Println("DEBUG: Request called, libSvc is", s.libSvc)
 
-	// Если список пуст – собираем все любимые книги И фильмы как составные ключи
+	var selectedWeights map[string]float64
+
 	if len(selectedIDs) == 0 {
 		books, _ := s.libSvc.GetBooks(ctx, userID)
 		movies, _ := s.libSvc.GetMovies(ctx, userID)
+
+		tau := 30 * 24 * time.Hour
+		now := time.Now()
+		selectedWeights = make(map[string]float64)
+
 		for _, b := range books {
-			selectedIDs = append(selectedIDs, "book_"+b.BookID)
+			key := "book_" + b.BookID
+			selectedIDs = append(selectedIDs, key)
+			age := now.Sub(b.LikedAt)
+			selectedWeights[key] = math.Exp(-age.Seconds() / tau.Seconds())
 		}
 		for _, m := range movies {
-			selectedIDs = append(selectedIDs, "movie_"+m.MovieID)
+			key := "movie_" + m.MovieID
+			selectedIDs = append(selectedIDs, key)
+			age := now.Sub(m.LikedAt)
+			selectedWeights[key] = math.Exp(-age.Seconds() / tau.Seconds())
 		}
 		if len(selectedIDs) == 0 {
 			return "", errors.New("no liked items to recommend from")
@@ -48,22 +61,22 @@ func (s *RecommendationService) Request(ctx context.Context, userID string, sele
 	}
 
 	taskID := uuid.New().String()
-	// Публикуем задачу в RabbitMQ
 	msg := rabbitmq.TaskMessage{
-		TaskID:      taskID,
-		UserID:      userID,
-		SelectedIDs: selectedIDs, // составные ключи: "book_...", "movie_..."
-		Direction:   direction,
-		Weights:     weights,
+		TaskID:          taskID,
+		UserID:          userID,
+		SelectedIDs:     selectedIDs,
+		SelectedWeights: selectedWeights,
+		ExcludeIDs:      excludeIDs,
+		Direction:       direction,
+		Weights:         weights,
 	}
 	if err := s.publisher.PublishRecommendationTask(ctx, msg); err != nil {
 		return "", err
 	}
-	// Сохраняем начальный статус в кэше
 	if err := s.cache.SetResult(ctx, taskID, redis.RecommendationResult{Status: "pending"}, 30*time.Minute); err != nil {
-		// не фатально, логируем
+		// не фатально
 	}
-	// Запись в историю БД
+
 	wJSON, _ := json.Marshal(weights)
 	entry := &domain.RecommendationHistory{
 		UserID:      userID,
@@ -79,17 +92,15 @@ func (s *RecommendationService) Request(ctx context.Context, userID string, sele
 }
 
 func (s *RecommendationService) GetResult(ctx context.Context, taskID string) (*redis.RecommendationResult, error) {
-	// 1. Пробуем Redis
 	result, err := s.cache.GetResult(ctx, taskID)
 	if err == nil && result != nil {
-		// 2. Если результат готов — сразу сохраняем в историю БД
 		if result.Status == "done" && len(result.Movies) > 0 {
 			moviesJSON, _ := json.Marshal(result.Movies)
 			_ = s.repo.UpdateResult(ctx, taskID, string(moviesJSON))
 		}
 		return result, nil
 	}
-	// 3. Если в Redis нет — ищем в БД
+
 	history, err := s.repo.GetHistoryByTaskID(ctx, taskID)
 	if err == nil && history != nil && history.Result != "" {
 		var movieIDs []string

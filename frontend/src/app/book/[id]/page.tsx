@@ -83,7 +83,7 @@ export default function BookPage() {
   if (!book) return <div className="p-8 text-center">Book not found</div>;
 
   return (
-    <div className="min-h-screen pb-20 px-4 max-w-screen-md">
+    <div className="min-h-screen pb-20 px-4 max-w-screen-md mx-auto overflow-x-hidden">
       <div className="pt-6">
         {book.image && (
           <img

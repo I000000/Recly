@@ -13,6 +13,7 @@ for _ in range(60):
     try:
         client.health()
         print("Meilisearch is ready.", flush=True)
+        client.index('items').delete_all_documents()
         break
     except:
         time.sleep(2)
@@ -74,7 +75,6 @@ def add_in_batches(documents, label):
         except Exception as e:
             print(f"  {label}: batch {start}-{start+len(batch)} HTTP error: {e}", flush=True)
 
-# --- КНИГИ ---
 print("Loading books...", flush=True)
 books = pd.read_parquet(BOOK_PQ,
                          columns=['book_id','title','authors','image_url','genres','average_rating','description','publication_year'])
@@ -86,7 +86,6 @@ documents = fix_documents(books)
 add_in_batches(documents, "Books")
 print(f"All books processed ({len(documents)} total).", flush=True)
 
-# --- ФИЛЬМЫ ---
 print("Loading movies...", flush=True)
 movies = pd.read_parquet(MOVIE_PQ,
                          columns=['movie_id','title','poster_full_url','genres','vote_average','director','cast','overview','release_date','runtime'])
@@ -101,7 +100,6 @@ documents = fix_documents(movies)
 add_in_batches(documents, "Movies")
 print(f"All movies processed ({len(documents)} total).", flush=True)
 
-# --- НАСТРОЙКИ ---
 print("Updating index settings...", flush=True)
 client.index('items').update_searchable_attributes(['title'])
 client.index('items').update_filterable_attributes(['id', 'type'])
