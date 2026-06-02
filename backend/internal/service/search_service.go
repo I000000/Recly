@@ -190,7 +190,6 @@ func (r *rawHit) toItemDetail() domain.ItemDetail {
 
 func (s *SearchService) Search(query string) ([]domain.ItemDetail, error) {
 	url := fmt.Sprintf("%s/indexes/items/search", s.meiliURL)
-
 	payload := map[string]interface{}{
 		"q":      query,
 		"limit":  10,

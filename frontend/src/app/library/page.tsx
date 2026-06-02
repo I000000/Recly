@@ -6,7 +6,7 @@ import { Search, Loader2, Plus, X } from 'lucide-react';
 import api from '@/lib/api';
 import MovieCard from '@/components/movie-card';
 import BookCard from '@/components/book-card';
-import BookSelector from '@/components/book-selector';
+import ItemSelector from '@/components/item-selector';
 
 export default function LibraryPage() {
   const queryClient = useQueryClient();
@@ -14,12 +14,11 @@ export default function LibraryPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [libraryQuery, setLibraryQuery] = useState('');
 
-// Получаем ID любимых элементов с ленивой загрузкой и долгим хранением кэша
 const { data: likedBooks = [] } = useQuery<string[]>({
   queryKey: ['likedBooks'],
   queryFn: async () => (await api.get('/api/user/library/books')).data.books.map((b: any) => b.book_id),
-  staleTime: 1000 * 60 * 30,   // 30 минут считаются свежими
-  gcTime: 60 * 60 * 1000,      // час хранятся в памяти после ухода с вкладки
+  staleTime: 1000 * 60 * 30,
+  gcTime: 60 * 60 * 1000,
   enabled: activeTab === 'books',
 });
 
@@ -34,7 +33,6 @@ const { data: likedMovies = [] } = useQuery<string[]>({
 const ids = activeTab === 'movies' ? likedMovies : likedBooks;
 const type = activeTab === 'movies' ? 'movie' : 'book';
 
-// Метаданные пачкой
 const {
   data: batchMeta = {},
   isLoading: metaLoading,
@@ -61,12 +59,10 @@ const {
   placeholderData: (prev) => prev,
 });
 
-  // Фильтрация на клиенте
   const filteredIds = libraryQuery.trim()
     ? ids.filter(id => batchMeta[id]?.title?.toLowerCase().includes(libraryQuery.toLowerCase()))
     : ids;
 
-  // Мутации
   const addBook = useMutation({
     mutationFn: (bookId: string) => api.post(`/api/book/${bookId}/like`),
     onSuccess: () => {
@@ -89,7 +85,6 @@ const {
 
   return (
     <div className="min-h-screen pb-20">
-      {/* Заголовок */}
       <div className="px-4 pt-6 pb-2">
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-2xl font-bold tracking-tight">Your Library</h1>
@@ -112,7 +107,6 @@ const {
         </div>
       </div>
 
-      {/* Вкладки */}
       <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-sm border-b border-border px-4 py-2">
         <div className="flex gap-2">
           <button
@@ -126,7 +120,6 @@ const {
         </div>
       </div>
 
-      {/* Содержимое */}
       {isLoading ? (
         <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin" /></div>
       ) : metaError ? (
@@ -149,7 +142,6 @@ const {
         </div>
       )}
 
-      {/* Модальное окно добавления */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-start justify-center pt-20">
           <div className="bg-background border border-border rounded-xl p-4 w-full max-w-md mx-4 shadow-lg">
@@ -157,7 +149,7 @@ const {
               <h2 className="text-lg font-semibold">Add to Library</h2>
               <button onClick={() => setShowAddModal(false)}><X className="w-5 h-5" /></button>
             </div>
-            <BookSelector
+            <ItemSelector
               onSelect={(item) => {
                 if (item.type === 'book') addBook.mutate(item.id);
                 else addMovie.mutate(item.id);

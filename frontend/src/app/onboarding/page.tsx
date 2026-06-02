@@ -3,8 +3,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
-import BookSelector from '@/components/book-selector';
-import type { SelectableItem } from '@/components/book-selector';
+import ItemSelector from '@/components/item-selector';
+import type { SelectableItem } from '@/components/item-selector';
 import { Button } from '@/components/ui/button';
 import { X } from 'lucide-react';
 
@@ -53,7 +53,7 @@ export default function OnboardingPage() {
       <h1 className="text-2xl font-bold mb-4">Pick your favorites</h1>
       <p className="text-muted-foreground mb-4">Choose at least 3 books or movies you love</p>
 
-      <BookSelector onSelect={handleSelect} />
+      <ItemSelector onSelect={handleSelect} />
 
       {selected.length > 0 && (
         <div className="mt-4 space-y-2">

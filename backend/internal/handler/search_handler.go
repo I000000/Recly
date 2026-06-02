@@ -38,7 +38,7 @@ func (h *SearchHandler) BatchGetItems(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "ids are required"})
 		return
 	}
-	itemType := c.DefaultQuery("type", "movie") // book или movie
+	itemType := c.DefaultQuery("type", "movie")
 	ids := strings.Split(idsStr, ",")
 
 	items, err := h.searchService.GetItems(ids, itemType)
