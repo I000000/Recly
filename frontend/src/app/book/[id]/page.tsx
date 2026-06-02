@@ -6,12 +6,18 @@ import { Heart } from 'lucide-react';
 import api from '@/lib/api';
 import MovieCard from '@/components/movie-card';
 import BookCard from '@/components/book-card';
+import { Bookmark } from 'lucide-react';
+import { useBookmark } from '@/hooks/useBookmark';
+import { useLike } from '@/hooks/useLike';
 
 export default function BookPage() {
   const params = useParams();
   const bookId = params.id as string;
   const queryClient = useQueryClient();
   const [descExpanded, setDescExpanded] = useState(false);
+
+  const { isLiked, toggleLike, isPending: likePending } = useLike('book', bookId);
+  const { isBookmarked, toggleBookmark, isPending: bookmarkPending } = useBookmark('book', bookId);
 
   const { data: book, isLoading: bookLoading } = useQuery<any>({
     queryKey: ['item', bookId, 'book'],
@@ -22,20 +28,23 @@ export default function BookPage() {
     staleTime: 10 * 60 * 1000,
   });
 
-  const { data: likedBooks = [] } = useQuery<string[]>({
-    queryKey: ['likedBooks'],
-    queryFn: async () => (await api.get('/api/user/library/books')).data.books.map((b: any) => b.book_id),
-    staleTime: 1000 * 60 * 30,
-  });
+  const normalizeGenres = (genres: any): string[] => {
+    let items: string[] = [];
+    if (Array.isArray(genres)) {
+      items = genres.map(g => String(g));
+    } else if (typeof genres === 'string') {
+      items = genres.split(',').map(s => s.trim());
+    }
 
-  const isLiked = likedBooks.includes(bookId);
+    const flat = items.flatMap(item =>
+      item.split(',').map(s => {
+        const trimmed = s.trim().toLowerCase();
+        return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+      })
+    );
 
-  const likeBook = useMutation({
-    mutationFn: () => api.post(`/api/book/${bookId}/like`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['likedBooks'] });
-    },
-  });
+    return [...new Set(flat)].filter(Boolean);
+  };
 
   const { data: similarBooks } = useQuery<any[]>({
     queryKey: ['similarBooks', bookId],
@@ -94,24 +103,30 @@ export default function BookPage() {
         )}
         <div className="flex items-start justify-between gap-2">
           <h1 className="text-2xl font-bold">{book.title}</h1>
-          <button
-            onClick={() => !isLiked && likeBook.mutate()}
-            disabled={likeBook.isPending || isLiked}
-            className={`p-2 rounded-full ${
-              isLiked ? 'bg-red-100 text-red-500' : 'bg-secondary/50 text-muted-foreground hover:bg-red-100 hover:text-red-500'
-            } transition`}
-            title={isLiked ? 'In your library' : 'Add to library'}
-          >
-            <Heart className={`w-5 h-5 ${isLiked ? 'fill-current' : ''}`} />
-          </button>
+          <div className="flex gap-2">
+            <button onClick={toggleBookmark} disabled={bookmarkPending} className={`p-2 rounded-full transition ${isBookmarked ? 'bg-blue-100 text-blue-500' : 'bg-secondary/50 text-muted-foreground hover:bg-blue-100 hover:text-blue-500'} ${bookmarkPending ? 'opacity-50 pointer-events-none' : ''}`}>
+              <Bookmark className={`w-5 h-5 ${isBookmarked ? 'fill-current' : ''}`} />
+            </button>
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                toggleLike();
+              }}
+              disabled={likePending}
+              className={`p-2 rounded-full transition ${isLiked ? 'bg-red-100 text-red-500' : 'bg-secondary/50 text-muted-foreground hover:bg-red-100 hover:text-red-500'} ${likePending ? 'opacity-50 pointer-events-none' : ''}`}
+              title={isLiked ? 'Remove from library' : 'Add to library'}
+            >
+              <Heart className={`w-5 h-5 ${isLiked ? 'fill-current' : ''}`} />
+            </button>
+          </div>
         </div>
         {book.authors && <p className="text-muted-foreground">by {book.authors}</p>}
         {book.genres && (
-          <div className="flex flex-wrap gap-1 mt-2">
-            {book.genres.map((g: string) => (
-              <span key={g} className="px-2 py-0.5 bg-secondary rounded-full text-xs">{g}</span>
-            ))}
-          </div>
+            <div className="flex flex-wrap gap-1 mt-2">
+                {normalizeGenres(book.genres).map((g: string) => (
+                    <span key={g} className="px-2 py-0.5 bg-secondary rounded-full text-xs">{g}</span>
+                ))}
+            </div>
         )}
         <div className="flex items-center gap-4 mt-2">
           {book.rating > 0 && <p>★ {book.rating}</p>}

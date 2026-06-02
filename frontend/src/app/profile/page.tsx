@@ -18,14 +18,6 @@ interface HistoryEntry {
   created_at: string;
 }
 
-interface SavedRecommendation {
-  id: string;
-  from_type: 'book' | 'movie';
-  from_id: string;
-  to_type: 'book' | 'movie';
-  to_id: string;
-}
-
 export default function ProfilePage() {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -43,13 +35,14 @@ export default function ProfilePage() {
     staleTime: 1000 * 60 * 30,
   });
 
+  // Новые сохранённые элементы
   const {
     data: savedRaw,
     isLoading: savedLoading,
     isError: savedError,
-  } = useQuery<SavedRecommendation[]>({
+  } = useQuery<any[]>({
     queryKey: ['saved'],
-    queryFn: async () => (await api.get('/api/user/recommendations/saved')).data.saved,
+    queryFn: async () => (await api.get('/api/user/saved-items')).data.saved,
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
   });
@@ -82,10 +75,7 @@ export default function ProfilePage() {
   }, [history]);
 
   const savedIds = new Set<string>();
-  saved.forEach(item => {
-    savedIds.add(item.from_id);
-    savedIds.add(item.to_id);
-  });
+  saved.forEach(item => savedIds.add(item.item_id));
   const {
     data: savedMeta = {},
     isLoading: savedMetaLoading,
@@ -121,7 +111,7 @@ export default function ProfilePage() {
   });
 
   const deleteSaved = useMutation({
-    mutationFn: (id: string) => api.delete(`/api/user/recommendations/saved/${id}`),
+    mutationFn: (id: string) => api.delete(`/api/user/saved-items/${id}`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['saved'] }),
   });
 
@@ -139,18 +129,6 @@ export default function ProfilePage() {
           <MovieCard movie={{ movie_id: toItem.id, title: toItem.title, poster_url: toItem.image }} aspectRatio="2/3" />
         ) : (
           <BookCard book={{ book_id: toItem.id, title: toItem.title, image_url: toItem.image }} aspectRatio="2/3" />
-        )}
-        {onDelete && (
-          <button
-            onClick={(e) => {
-              e.preventDefault();
-              onDelete();
-            }}
-            className="absolute top-1 right-1 p-1 rounded-full bg-background/70 hover:bg-destructive/20 text-muted-foreground hover:text-destructive transition"
-            title="Remove"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </button>
         )}
       </div>
     );
@@ -313,16 +291,16 @@ export default function ProfilePage() {
       </div>
   
       <div className="px-4 py-4">
-        <h2 className="text-xl font-semibold mb-4">Saved Recommendations</h2>
+        <h2 className="text-xl font-semibold mb-4">Saved</h2>
         {renderScrollableSection(
           saved,
-          (item: SavedRecommendation) => {
-            const toItem = savedMeta[item.to_id];
+          (item: any) => {
+            const toItem = savedMeta[item.item_id];
             return renderRecommendationCard(toItem, () => deleteSaved.mutate(item.id), item.id);
           },
           showAllSaved,
           () => setShowAllSaved(!showAllSaved),
-          'No saved recommendations yet.',
+          'No saved items yet.',
           savedLoading || savedMetaLoading,
           savedError || savedMetaError
         )}

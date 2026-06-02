@@ -15,7 +15,6 @@ func NewLibraryHandler(libService *service.LibraryService) *LibraryHandler {
 	return &LibraryHandler{libService: libService}
 }
 
-// --- книги ---
 func (h *LibraryHandler) AddBook(c *gin.Context) {
 	userID := c.GetString("user_id")
 	bookID := c.Param("id")
@@ -46,7 +45,6 @@ func (h *LibraryHandler) GetBooks(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"books": books})
 }
 
-// --- фильмы ---
 func (h *LibraryHandler) AddMovie(c *gin.Context) {
 	userID := c.GetString("user_id")
 	movieID := c.Param("id")

@@ -48,19 +48,21 @@ func main() {
 	defer publisher.Close()
 
 	// Redis Cache
-	cache := redisPkg.NewRedisCache(cfg.RedisURL, "", 0) // пароль и DB из конфига при необходимости
+	cache := redisPkg.NewRedisCache(cfg.RedisURL, "", 0)
 
 	// Репозитории
 	userRepo := postgres.NewUserRepo(pool)
 	tokenRepo := postgres.NewTokenRepo(pool)
 	libRepo := postgres.NewLibraryRepo(pool)
 	recRepo := postgres.NewRecommendationRepo(pool)
+	savedItemRepo := postgres.NewSavedItemRepo(pool) // ← новый репозиторий
 
 	// Сервисы
 	authSvc := service.NewAuthService(userRepo, tokenRepo, cfg.JWTSecret, cfg.AccessTokenTTL, cfg.RefreshTokenTTL)
 	libSvc := service.NewLibraryService(libRepo)
 	recSvc := service.NewRecommendationService(recRepo, publisher, cache, libSvc)
 	searchSvc := service.NewSearchService("http://meilisearch:7700", "aSecretMasterKey")
+	savedItemSvc := service.NewSavedItemService(savedItemRepo) // ← новый сервис
 
 	// Хэндлеры
 	authH := handler.NewAuthHandler(authSvc)
@@ -68,8 +70,9 @@ func main() {
 	recH := handler.NewRecommendationHandler(recSvc)
 	userH := handler.NewUserHandler()
 	searchH := handler.NewSearchHandler(searchSvc)
+	savedItemH := handler.NewSavedItemHandler(savedItemSvc) // ← новый обработчик
 
-	r := router.Setup(authH, libH, recH, userH, searchH, cfg.JWTSecret)
+	r := router.Setup(authH, libH, recH, userH, searchH, savedItemH, cfg.JWTSecret)
 
 	srv := &http.Server{Addr: ":" + cfg.ServerPort, Handler: r}
 	go func() {

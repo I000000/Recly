@@ -12,6 +12,7 @@ func Setup(
 	recH *handler.RecommendationHandler,
 	userH *handler.UserHandler,
 	searchH *handler.SearchHandler,
+	savedItemH *handler.SavedItemHandler,
 	secret string,
 ) *gin.Engine {
 	r := gin.New()
@@ -42,10 +43,12 @@ func Setup(
 			// рекомендации
 			protected.POST("/recommend", recH.Request)
 			protected.GET("/user/recommendations/history", recH.GetHistory)
-			protected.POST("/recommendations/save", recH.Save)
-			protected.DELETE("/recommendations/:id", recH.DeleteSaved)
-			protected.GET("/user/recommendations/saved", recH.GetSaved)
 			protected.GET("/result/:taskId", recH.GetResult)
+
+			// закладки
+			protected.POST("/user/saved-items", savedItemH.Save)
+			protected.DELETE("/user/saved-items/:id", savedItemH.Delete)
+			protected.GET("/user/saved-items", savedItemH.Get)
 
 			// профиль
 			protected.GET("/user/profile", userH.Profile)
