@@ -14,7 +14,6 @@ export default function LibraryPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [libraryQuery, setLibraryQuery] = useState('');
 
-  // Восстанавливаем сохранённую вкладку после монтирования
   useEffect(() => {
     const saved = sessionStorage.getItem('libraryTab');
     if (saved === 'movies' || saved === 'books') {
@@ -22,7 +21,6 @@ export default function LibraryPage() {
     }
   }, []);
 
-  // Функция переключения вкладки с сохранением
   const handleTabChange = (tab: 'movies' | 'books') => {
     setActiveTab(tab);
     sessionStorage.setItem('libraryTab', tab);
