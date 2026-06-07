@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import MovieCard from '@/components/movie-card';
 import BookCard from '@/components/book-card';
@@ -13,12 +13,54 @@ export default function HomePage() {
   const queryClient = useQueryClient();
   const sentinelRef = useRef<HTMLDivElement>(null);
 
+  const { data: likedBooks = [] } = useQuery<string[]>({
+    queryKey: ['likedBooks'],
+    queryFn: async () => (await api.get('/api/user/library/books')).data.books.map((b: any) => b.book_id),
+    staleTime: 1000 * 60 * 30,
+  });
+  const { data: likedMovies = [] } = useQuery<string[]>({
+    queryKey: ['likedMovies'],
+    queryFn: async () => (await api.get('/api/user/library/movies')).data.movies.map((m: any) => m.movie_id),
+    staleTime: 1000 * 60 * 30,
+  });
+
+  // Восстанавливаем сохранённую вкладку после монтирования (клиентская сторона)
+  useEffect(() => {
+    const saved = sessionStorage.getItem('homeTab');
+    if (saved === 'movies' || saved === 'books') {
+      setTab(saved);
+    }
+  }, []);
+
+  // Сохраняем вкладку при каждом изменении
+  useEffect(() => {
+    sessionStorage.setItem('homeTab', tab);
+  }, [tab]);
+
+  // Сбрасываем кэш только при первом рендере в сессии (после F5)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const renderCount = parseInt(sessionStorage.getItem('home_render_count') || '0', 10);
+    if (renderCount === 0) {
+      queryClient.removeQueries({ queryKey: ['homeRecommendations'] });
+    }
+    sessionStorage.setItem('home_render_count', String(renderCount + 1));
+  }, [queryClient]);
+
   const fetchRecommendations = async ({ pageParam }: { pageParam: string[] }) => {
     const excludeIds = pageParam ?? [];
     const direction = tab === 'movies' ? 'book_to_movie' : 'movie_to_book';
 
+    // Случайная подвыборка до 7 элементов из библиотеки
+    const allLiked = [
+      ...likedBooks.map(id => `book_${id}`),
+      ...likedMovies.map(id => `movie_${id}`)
+    ];
+    const shuffled = [...allLiked].sort(() => Math.random() - 0.5);
+    const selected = shuffled.slice(0, Math.min(7, shuffled.length));
+
     const { data: task } = await api.post('/api/recommend', {
-      selected_ids: [],
+      selected_ids: selected,
       direction,
       weights: { genre: 0.3, text: 0.4, image: 0.3 },
       exclude_ids: excludeIds,
@@ -51,6 +93,7 @@ export default function HomePage() {
       title: item.title,
       poster_url: item.image || '',
       image_url: item.image || '',
+      type: item.type,   // сохраняем реальный тип элемента
     }));
 
     const newExcludeIds = [...excludeIds, ...newCards.map((c: any) => c.id)];
@@ -74,7 +117,10 @@ export default function HomePage() {
       if (lastPage.cards.length === 0) return undefined;
       return lastPage.excludeIds;
     },
-    staleTime: 0,
+    staleTime: Infinity,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    placeholderData: (prev) => prev,
   });
 
   const cards = data?.pages.flatMap(page => page.cards) ?? [];
@@ -83,16 +129,12 @@ export default function HomePage() {
     if (!hasNextPage || isFetchingNextPage) return;
     const sentinel = sentinelRef.current;
     if (!sentinel) return;
-
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting) {
-          fetchNextPage();
-        }
+        if (entries[0].isIntersecting) fetchNextPage();
       },
       { rootMargin: '200px' }
     );
-
     observer.observe(sentinel);
     return () => observer.disconnect();
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
@@ -104,16 +146,10 @@ export default function HomePage() {
       </div>
       <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-sm border-b border-border px-4 py-2">
         <div className="flex gap-2">
-          <button
-            onClick={() => setTab('movies')}
-            className={`px-4 py-2 rounded-full text-sm font-medium ${tab === 'movies' ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}
-          >
+          <button onClick={() => setTab('movies')} className={`px-4 py-2 rounded-full text-sm font-medium ${tab === 'movies' ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}>
             Movies
           </button>
-          <button
-            onClick={() => setTab('books')}
-            className={`px-4 py-2 rounded-full text-sm font-medium ${tab === 'books' ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}
-          >
+          <button onClick={() => setTab('books')} className={`px-4 py-2 rounded-full text-sm font-medium ${tab === 'books' ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}>
             Books
           </button>
         </div>
@@ -125,24 +161,10 @@ export default function HomePage() {
       {cards.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-[repeat(auto-fill,minmax(225px,1fr))] gap-2 p-4">
           {cards.map((card: any) =>
-            tab === 'movies' ? (
-              <MovieCard
-                key={card.id}
-                movie={{
-                  movie_id: card.id,
-                  title: card.title,
-                  poster_url: card.poster_url,
-                }}
-              />
+            card.type === 'movie' ? (
+              <MovieCard key={card.id} movie={{ movie_id: card.id, title: card.title, poster_url: card.poster_url }} />
             ) : (
-              <BookCard
-                key={card.id}
-                book={{
-                  book_id: card.id,
-                  title: card.title,
-                  image_url: card.image_url,
-                }}
-              />
+              <BookCard key={card.id} book={{ book_id: card.id, title: card.title, image_url: card.image_url }} />
             )
           )}
         </div>
