@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Search, Loader2, Plus, X } from 'lucide-react';
 import api from '@/lib/api';
@@ -14,50 +14,64 @@ export default function LibraryPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [libraryQuery, setLibraryQuery] = useState('');
 
-const { data: likedBooks = [] } = useQuery<string[]>({
-  queryKey: ['likedBooks'],
-  queryFn: async () => (await api.get('/api/user/library/books')).data.books.map((b: any) => b.book_id),
-  staleTime: 1000 * 60 * 30,
-  gcTime: 60 * 60 * 1000,
-  enabled: activeTab === 'books',
-});
+  // Восстанавливаем сохранённую вкладку после монтирования
+  useEffect(() => {
+    const saved = sessionStorage.getItem('libraryTab');
+    if (saved === 'movies' || saved === 'books') {
+      setActiveTab(saved);
+    }
+  }, []);
 
-const { data: likedMovies = [] } = useQuery<string[]>({
-  queryKey: ['likedMovies'],
-  queryFn: async () => (await api.get('/api/user/library/movies')).data.movies.map((m: any) => m.movie_id),
-  staleTime: 1000 * 60 * 30,
-  gcTime: 60 * 60 * 1000,
-  enabled: activeTab === 'movies',
-});
+  // Функция переключения вкладки с сохранением
+  const handleTabChange = (tab: 'movies' | 'books') => {
+    setActiveTab(tab);
+    sessionStorage.setItem('libraryTab', tab);
+  };
 
-const ids = activeTab === 'movies' ? likedMovies : likedBooks;
-const type = activeTab === 'movies' ? 'movie' : 'book';
+  const { data: likedBooks = [] } = useQuery<string[]>({
+    queryKey: ['likedBooks'],
+    queryFn: async () => (await api.get('/api/user/library/books')).data.books.map((b: any) => b.book_id),
+    staleTime: 1000 * 60 * 30,
+    gcTime: 60 * 60 * 1000,
+    enabled: activeTab === 'books',
+  });
 
-const {
-  data: batchMeta = {},
-  isLoading: metaLoading,
-  error: metaError,
-} = useQuery({
-  queryKey: ['batchMeta', ids, type],
-  queryFn: async () => {
-    if (ids.length === 0) return {};
-    const res = await api.get(`/api/items/batch?ids=${ids.join(',')}&type=${type}`);
-    const map: Record<string, any> = {};
-    (res.data.items || []).forEach((item: any) => {
-      map[item.id] = {
-        id: item.id,
-        title: item.title,
-        image: item.image,
-        type: item.type,
-      };
-    });
-    return map;
-  },
-  enabled: ids.length > 0,
-  staleTime: 30 * 60 * 1000,
-  gcTime: 60 * 60 * 1000,
-  placeholderData: (prev) => prev,
-});
+  const { data: likedMovies = [] } = useQuery<string[]>({
+    queryKey: ['likedMovies'],
+    queryFn: async () => (await api.get('/api/user/library/movies')).data.movies.map((m: any) => m.movie_id),
+    staleTime: 1000 * 60 * 30,
+    gcTime: 60 * 60 * 1000,
+    enabled: activeTab === 'movies',
+  });
+
+  const ids = activeTab === 'movies' ? likedMovies : likedBooks;
+  const type = activeTab === 'movies' ? 'movie' : 'book';
+
+  const {
+    data: batchMeta = {},
+    isLoading: metaLoading,
+    error: metaError,
+  } = useQuery({
+    queryKey: ['batchMeta', ids, type],
+    queryFn: async () => {
+      if (ids.length === 0) return {};
+      const res = await api.get(`/api/items/batch?ids=${ids.join(',')}&type=${type}`);
+      const map: Record<string, any> = {};
+      (res.data.items || []).forEach((item: any) => {
+        map[item.id] = {
+          id: item.id,
+          title: item.title,
+          image: item.image,
+          type: item.type,
+        };
+      });
+      return map;
+    },
+    enabled: ids.length > 0,
+    staleTime: 30 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+    placeholderData: (prev) => prev,
+  });
 
   const filteredIds = libraryQuery.trim()
     ? ids.filter(id => batchMeta[id]?.title?.toLowerCase().includes(libraryQuery.toLowerCase()))
@@ -80,8 +94,6 @@ const {
   });
 
   const isLoading = metaLoading;
-
-  console.log('batchMeta sample:', Object.values(batchMeta)[0]);
 
   return (
     <div className="min-h-screen pb-20">
@@ -110,11 +122,11 @@ const {
       <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-sm border-b border-border px-4 py-2">
         <div className="flex gap-2">
           <button
-            onClick={() => setActiveTab('movies')}
+            onClick={() => handleTabChange('movies')}
             className={`px-4 py-2 rounded-full text-sm font-medium ${activeTab === 'movies' ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}
           >Movies</button>
           <button
-            onClick={() => setActiveTab('books')}
+            onClick={() => handleTabChange('books')}
             className={`px-4 py-2 rounded-full text-sm font-medium ${activeTab === 'books' ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}
           >Books</button>
         </div>

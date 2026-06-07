@@ -24,7 +24,7 @@ export default function HomePage() {
     staleTime: 1000 * 60 * 30,
   });
 
-  // Восстанавливаем сохранённую вкладку после монтирования (клиентская сторона)
+  // Восстанавливаем сохранённую вкладку после монтирования
   useEffect(() => {
     const saved = sessionStorage.getItem('homeTab');
     if (saved === 'movies' || saved === 'books') {
@@ -32,10 +32,11 @@ export default function HomePage() {
     }
   }, []);
 
-  // Сохраняем вкладку при каждом изменении
-  useEffect(() => {
-    sessionStorage.setItem('homeTab', tab);
-  }, [tab]);
+  // Функция переключения вкладки с сохранением
+  const handleTabChange = (newTab: Tab) => {
+    setTab(newTab);
+    sessionStorage.setItem('homeTab', newTab);
+  };
 
   // Сбрасываем кэш только при первом рендере в сессии (после F5)
   useEffect(() => {
@@ -51,7 +52,6 @@ export default function HomePage() {
     const excludeIds = pageParam ?? [];
     const direction = tab === 'movies' ? 'book_to_movie' : 'movie_to_book';
 
-    // Случайная подвыборка до 7 элементов из библиотеки
     const allLiked = [
       ...likedBooks.map(id => `book_${id}`),
       ...likedMovies.map(id => `movie_${id}`)
@@ -93,7 +93,7 @@ export default function HomePage() {
       title: item.title,
       poster_url: item.image || '',
       image_url: item.image || '',
-      type: item.type,   // сохраняем реальный тип элемента
+      type: item.type,
     }));
 
     const newExcludeIds = [...excludeIds, ...newCards.map((c: any) => c.id)];
@@ -146,10 +146,10 @@ export default function HomePage() {
       </div>
       <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-sm border-b border-border px-4 py-2">
         <div className="flex gap-2">
-          <button onClick={() => setTab('movies')} className={`px-4 py-2 rounded-full text-sm font-medium ${tab === 'movies' ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}>
+          <button onClick={() => handleTabChange('movies')} className={`px-4 py-2 rounded-full text-sm font-medium ${tab === 'movies' ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}>
             Movies
           </button>
-          <button onClick={() => setTab('books')} className={`px-4 py-2 rounded-full text-sm font-medium ${tab === 'books' ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}>
+          <button onClick={() => handleTabChange('books')} className={`px-4 py-2 rounded-full text-sm font-medium ${tab === 'books' ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}>
             Books
           </button>
         </div>
