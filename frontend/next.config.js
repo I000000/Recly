@@ -1,5 +1,5 @@
 module.exports = {
-  allowedDevOrigins: ['ad56336db07771.lhr.life'],
+  allowedDevOrigins: ['fcb3b35387ea48.lhr.life'],
   async rewrites() {
     return [
       {

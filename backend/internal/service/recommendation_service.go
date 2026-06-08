@@ -72,7 +72,11 @@ func (s *RecommendationService) Request(ctx context.Context, userID string, sele
 	if err := s.publisher.PublishRecommendationTask(ctx, msg); err != nil {
 		return "", err
 	}
-	if err := s.cache.SetResult(ctx, taskID, redis.RecommendationResult{Status: "pending"}, 30*time.Minute); err != nil {
+	if err := s.cache.SetResult(ctx, taskID, redis.RecommendationResult{
+		Status:     "pending",
+		CreatedAt:  time.Now().Unix(),
+		Contextual: contextual, // ← добавить
+	}, 30*time.Minute); err != nil {
 		// не фатально
 	}
 
@@ -94,10 +98,12 @@ func (s *RecommendationService) GetResult(ctx context.Context, taskID string) (*
 	result, err := s.cache.GetResult(ctx, taskID)
 	if err == nil && result != nil {
 		if result.Status == "done" && len(result.Movies) > 0 {
-			moviesJSON, _ := json.Marshal(result.Movies)
-			_ = s.repo.UpdateResult(ctx, taskID, string(moviesJSON))
+			if !result.Contextual {
+				moviesJSON, _ := json.Marshal(result.Movies)
+				_ = s.repo.UpdateResult(ctx, taskID, string(moviesJSON))
+			}
+			return result, nil
 		}
-		return result, nil
 	}
 
 	history, err := s.repo.GetHistoryByTaskID(ctx, taskID)
