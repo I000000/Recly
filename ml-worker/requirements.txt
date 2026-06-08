@@ -1,10 +1,8 @@
-torch==2.2.2
 numpy
+pandas
 pyarrow
+h5py
 psycopg2-binary
-scikit-learn
-sentence-transformers
 redis
 pika
-pandas
-h5py
+scikit-learn

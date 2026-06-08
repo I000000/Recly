@@ -21,6 +21,7 @@ def load_ids(path, id_col):
     return pd.read_parquet(path, columns=[id_col])[id_col].astype(str).values
 
 def load_embeddings():
+    print(f"Loading embeddings. Please wait.")
     global book_text, movie_text, book_genre, movie_genre, book_image, movie_image, book_ids, movie_ids
     global book_id_to_idx, movie_id_to_idx
     with h5py.File(EMBEDDINGS_PATH, 'r') as f:
@@ -34,7 +35,8 @@ def load_embeddings():
     movie_ids = load_ids(MOVIE_PARQUET, 'movie_id')
     book_id_to_idx = {bid: i for i, bid in enumerate(book_ids)}
     movie_id_to_idx = {mid: i for i, mid in enumerate(movie_ids)}
-    print(f"Loaded embeddings for {len(book_ids)} books and {len(movie_ids)} movies.")
+    print(f"Loaded embeddings: books {book_text.shape}, movies {movie_text.shape}.")
+    print(f"Book IDs: {len(book_ids)}, Movie IDs: {len(movie_ids)}.")
 
 def normalize(vec):
     norm = np.linalg.norm(vec)
@@ -136,20 +138,41 @@ def on_message(ch, method, properties, body):
         for eid in data.get('exclude_ids', []):
             exclude_set.add(str(eid))
 
-        if user_id:
+        if user_id and user_id.strip():
             try:
                 conn = psycopg2.connect(DATABASE_URL)
                 cur = conn.cursor()
-                cur.execute("SELECT book_id FROM user_liked_books WHERE user_id = %s", (user_id,))
+                cur.execute(
+                    """SELECT result FROM user_recommendation_history
+                    WHERE user_id = %s
+                        AND result IS NOT NULL
+                        AND jsonb_typeof(result) = 'array'
+                        AND created_at > NOW() - INTERVAL '30 minutes'
+                    ORDER BY created_at DESC LIMIT 10""",
+                    (user_id,)
+                )
+                added = 0
                 for row in cur.fetchall():
-                    exclude_set.add(row[0])
-                cur.execute("SELECT movie_id FROM user_liked_movies WHERE user_id = %s", (user_id,))
-                for row in cur.fetchall():
-                    exclude_set.add(row[0])
+                    try:
+                        raw = row[0]
+                        if isinstance(raw, list):
+                            recent_ids = raw
+                        else:
+                            recent_ids = json.loads(raw)
+                        for rid in recent_ids:
+                            if rid and str(rid) not in exclude_set:
+                                exclude_set.add(str(rid))
+                                added += 1
+                    except Exception as parse_err:
+                        print(f"Warning: could not parse recent recommendation: {parse_err}")
                 cur.close()
                 conn.close()
+                if added > 0:
+                    print(f"Added {added} recent recommendations to exclude set")
             except Exception as e:
-                print(f"Warning: could not load user likes: {e}")
+                print(f"Warning: could not load recent recommendations: {e}")
+        else:
+            print(f"Warning: empty user_id in message: {data.get('user_id')}")
 
         base_w = {
             'text': weights.get('text', 0.4),
@@ -211,4 +234,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    
