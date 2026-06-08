@@ -20,6 +20,7 @@ type RecommendRequest struct {
 	ExcludeIDs      []string           `json:"exclude_ids"`
 	Direction       string             `json:"direction" binding:"required,oneof=book_to_movie book_to_book movie_to_movie movie_to_book"`
 	ModalityWeights map[string]float64 `json:"weights"`
+	Contextual      bool               `json:"contextual"`
 }
 
 func (h *RecommendationHandler) Request(c *gin.Context) {
@@ -29,7 +30,7 @@ func (h *RecommendationHandler) Request(c *gin.Context) {
 		return
 	}
 	userID := c.GetString("user_id")
-	taskID, err := h.recService.Request(c.Request.Context(), userID, req.SelectedIDs, req.ModalityWeights, req.ExcludeIDs, req.Direction)
+	taskID, err := h.recService.Request(c.Request.Context(), userID, req.SelectedIDs, req.ModalityWeights, req.ExcludeIDs, req.Direction, req.Contextual)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

@@ -17,6 +17,7 @@ type TaskMessage struct {
 	ExcludeIDs      []string           `json:"exclude_ids,omitempty"`
 	Direction       string             `json:"direction"`
 	Weights         map[string]float64 `json:"weights"`
+	Contextual      bool               `json:"contextual"`
 }
 
 type Publisher interface {

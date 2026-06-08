@@ -50,6 +50,7 @@ export default function MoviePage() {
         selected_ids: [`movie_${movieId}`],
         direction: 'movie_to_movie',
         weights: { genre: 0.3, text: 0.4, image: 0.3 },
+        contextual: true,
       });
       let result = await api.get(`/api/result/${res.data.task_id}`);
       while (result.data.status === 'pending') {
@@ -71,6 +72,7 @@ export default function MoviePage() {
         selected_ids: [`movie_${movieId}`],
         direction: 'movie_to_book',
         weights: { genre: 0.3, text: 0.4, image: 0.3 },
+        contextual: true,
       });
       let result = await api.get(`/api/result/${res.data.task_id}`);
       while (result.data.status === 'pending') {

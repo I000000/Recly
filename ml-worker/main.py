@@ -126,6 +126,7 @@ def on_message(ch, method, properties, body):
         selected_ids = data['selected_ids']
         selected_weights = data.get('selected_weights', {})
         user_id = data.get('user_id')
+        contextual = data.get('contextual', False)
 
         exclude_set = set()
 
@@ -138,7 +139,7 @@ def on_message(ch, method, properties, body):
         for eid in data.get('exclude_ids', []):
             exclude_set.add(str(eid))
 
-        if user_id and user_id.strip():
+        if user_id and user_id.strip() and not contextual:
             try:
                 conn = psycopg2.connect(DATABASE_URL)
                 cur = conn.cursor()
@@ -147,8 +148,8 @@ def on_message(ch, method, properties, body):
                     WHERE user_id = %s
                         AND result IS NOT NULL
                         AND jsonb_typeof(result) = 'array'
-                        AND created_at > NOW() - INTERVAL '30 minutes'
-                    ORDER BY created_at DESC LIMIT 10""",
+                        AND created_at > NOW() - INTERVAL '7 days'
+                    ORDER BY created_at DESC""",
                     (user_id,)
                 )
                 added = 0
@@ -171,21 +172,22 @@ def on_message(ch, method, properties, body):
                     print(f"Added {added} recent recommendations to exclude set")
             except Exception as e:
                 print(f"Warning: could not load recent recommendations: {e}")
-        else:
-            print(f"Warning: empty user_id in message: {data.get('user_id')}")
 
         base_w = {
             'text': weights.get('text', 0.4),
             'genre': weights.get('genre', 0.3),
             'image': weights.get('image', 0.3)
         }
-        noise = {k: random.uniform(-0.05, 0.05) for k in base_w}
-        noisy = {k: max(0.0, base_w[k] + noise[k]) for k in base_w}
-        total = sum(noisy.values())
-        if total > 0:
-            noisy = {k: v / total for k, v in noisy.items()}
-        else:
+        if contextual:
             noisy = base_w
+        else:
+            noise = {k: random.uniform(-0.05, 0.05) for k in base_w}
+            noisy = {k: max(0.0, base_w[k] + noise[k]) for k in base_w}
+            total = sum(noisy.values())
+            if total > 0:
+                noisy = {k: v / total for k, v in noisy.items()}
+            else:
+                noisy = base_w
 
         if not selected_ids:
             result = {"status": "error", "error": "No selected items"}
@@ -194,7 +196,8 @@ def on_message(ch, method, properties, body):
 
         redis_client.set(f"rec:{task_id}", json.dumps(result), ex=1800)
         print(f"Task {task_id} completed. Recommendations are ready.")
-        if result.get("status") == "done":
+
+        if result.get("status") == "done" and not contextual:
             update_history(task_id, json.dumps(result["movies"]))
     except Exception as e:
         print(f"Error: {e}", flush=True)

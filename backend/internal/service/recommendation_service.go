@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"log"
 	"math"
 	"time"
 
@@ -30,8 +29,7 @@ func NewRecommendationService(
 	return &RecommendationService{repo: repo, publisher: pub, cache: cache, libSvc: libSvc}
 }
 
-func (s *RecommendationService) Request(ctx context.Context, userID string, selectedIDs []string, weights map[string]float64, excludeIDs []string, direction string) (string, error) {
-	log.Println("DEBUG: Request called, libSvc is", s.libSvc)
+func (s *RecommendationService) Request(ctx context.Context, userID string, selectedIDs []string, weights map[string]float64, excludeIDs []string, direction string, contextual bool) (string, error) {
 
 	var selectedWeights map[string]float64
 
@@ -69,6 +67,7 @@ func (s *RecommendationService) Request(ctx context.Context, userID string, sele
 		ExcludeIDs:      excludeIDs,
 		Direction:       direction,
 		Weights:         weights,
+		Contextual:      contextual,
 	}
 	if err := s.publisher.PublishRecommendationTask(ctx, msg); err != nil {
 		return "", err
