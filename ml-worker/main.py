@@ -1,7 +1,6 @@
 import os, json, signal, sys, time, random
 import numpy as np, pandas as pd, h5py
 import psycopg2, redis, pika
-from sklearn.metrics.pairwise import cosine_similarity
 
 RABBITMQ_URL = os.getenv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
@@ -20,10 +19,17 @@ redis_client = None
 def load_ids(path, id_col):
     return pd.read_parquet(path, columns=[id_col])[id_col].astype(str).values
 
+def normalize_matrix(m):
+    """L2-нормализация матрицы построчно (in-place)"""
+    norms = np.linalg.norm(m, axis=1, keepdims=True)
+    norms[norms == 0] = 1
+    return m / norms
+
 def load_embeddings():
     print(f"Loading embeddings. Please wait.")
     global book_text, movie_text, book_genre, movie_genre, book_image, movie_image, book_ids, movie_ids
     global book_id_to_idx, movie_id_to_idx
+
     with h5py.File(EMBEDDINGS_PATH, 'r') as f:
         book_text  = f['/books/desc'][:].astype('float32')
         book_genre = f['/books/genre'][:].astype('float32')
@@ -31,25 +37,37 @@ def load_embeddings():
         movie_text  = f['/movies/desc'][:].astype('float32')
         movie_genre = f['/movies/genre'][:].astype('float32')
         movie_image = f['/movies/image'][:].astype('float32')
+
+    print("Normalizing embeddings...")
+    book_text   = normalize_matrix(book_text)
+    book_genre  = normalize_matrix(book_genre)
+    book_image  = normalize_matrix(book_image)
+    movie_text  = normalize_matrix(movie_text)
+    movie_genre = normalize_matrix(movie_genre)
+    movie_image = normalize_matrix(movie_image)
+
     book_ids  = load_ids(BOOK_PARQUET, 'book_id')
     movie_ids = load_ids(MOVIE_PARQUET, 'movie_id')
     book_id_to_idx = {bid: i for i, bid in enumerate(book_ids)}
     movie_id_to_idx = {mid: i for i, mid in enumerate(movie_ids)}
+
     print(f"Loaded embeddings: books {book_text.shape}, movies {movie_text.shape}.")
     print(f"Book IDs: {len(book_ids)}, Movie IDs: {len(movie_ids)}.")
 
-def normalize(vec):
+def normalize_vector(vec):
     norm = np.linalg.norm(vec)
     return vec / norm if norm > 1e-8 else vec
 
 def recommend(selected_ids, weights, direction, exclude_ids=None, selected_weights=None):
+    start_time = time.time()
+
     w_g = weights.get('genre', 0.3)
     w_t = weights.get('text', 0.4)
     w_i = weights.get('image', 0.3)
 
-    user_text = np.zeros(book_text.shape[1])
-    user_genre = np.zeros(book_genre.shape[1])
-    user_image = np.zeros(book_image.shape[1])
+    user_text = np.zeros(book_text.shape[1], dtype=np.float32)
+    user_genre = np.zeros(book_genre.shape[1], dtype=np.float32)
+    user_image = np.zeros(book_image.shape[1], dtype=np.float32)
     weight_sum = 0.0
 
     for sid in selected_ids:
@@ -73,12 +91,10 @@ def recommend(selected_ids, weights, direction, exclude_ids=None, selected_weigh
         user_text /= weight_sum
         user_genre /= weight_sum
         user_image /= weight_sum
-    else:
-        pass
 
-    user_text = normalize(user_text)
-    user_genre = normalize(user_genre)
-    user_image = normalize(user_image)
+    user_text = normalize_vector(user_text)
+    user_genre = normalize_vector(user_genre)
+    user_image = normalize_vector(user_image)
 
     if direction.endswith('movie'):
         tgt_text, tgt_genre, tgt_img, tgt_ids = movie_text, movie_genre, movie_image, movie_ids
@@ -87,10 +103,11 @@ def recommend(selected_ids, weights, direction, exclude_ids=None, selected_weigh
         tgt_text, tgt_genre, tgt_img, tgt_ids = book_text, book_genre, book_image, book_ids
         id_to_idx = book_id_to_idx
 
-    sim_text  = cosine_similarity(user_text.reshape(1,-1), tgt_text).flatten()
-    sim_genre = cosine_similarity(user_genre.reshape(1,-1), tgt_genre).flatten()
-    sim_img   = cosine_similarity(user_image.reshape(1,-1), tgt_img).flatten()
-    combined  = w_g*sim_genre + w_t*sim_text + w_i*sim_img
+    sim_text  = np.dot(user_text, tgt_text.T)
+    sim_genre = np.dot(user_genre, tgt_genre.T)
+    sim_img   = np.dot(user_image, tgt_img.T)
+
+    combined = w_g * sim_genre + w_t * sim_text + w_i * sim_img
 
     if exclude_ids:
         for eid in exclude_ids:
@@ -98,8 +115,12 @@ def recommend(selected_ids, weights, direction, exclude_ids=None, selected_weigh
             if idx is not None:
                 combined[idx] = -1e9
 
-    top = np.argsort(combined)[::-1][:30]
-    return [tgt_ids[i] for i in top]
+    top_indices = np.argsort(combined)[::-1][:30]
+    result_ids = [tgt_ids[i] for i in top_indices]
+
+    elapsed = (time.time() - start_time) * 1000  # мс
+    print(f"Recommendation inference took {elapsed:.2f} ms")
+    return result_ids
 
 def update_history(task_id, movies_json):
     try:
@@ -129,13 +150,11 @@ def on_message(ch, method, properties, body):
         contextual = data.get('contextual', False)
 
         exclude_set = set()
-
         for sid in selected_ids:
             if sid.startswith('book_'):
                 exclude_set.add(sid[5:])
             elif sid.startswith('movie_'):
                 exclude_set.add(sid[6:])
-
         for eid in data.get('exclude_ids', []):
             exclude_set.add(str(eid))
 
@@ -145,11 +164,11 @@ def on_message(ch, method, properties, body):
                 cur = conn.cursor()
                 cur.execute(
                     """SELECT result FROM user_recommendation_history
-                    WHERE user_id = %s
-                        AND result IS NOT NULL
-                        AND jsonb_typeof(result) = 'array'
-                        AND created_at > NOW() - INTERVAL '7 days'
-                    ORDER BY created_at DESC""",
+                       WHERE user_id = %s
+                         AND result IS NOT NULL
+                         AND jsonb_typeof(result) = 'array'
+                         AND created_at > NOW() - INTERVAL '7 days'
+                       ORDER BY created_at DESC""",
                     (user_id,)
                 )
                 added = 0
