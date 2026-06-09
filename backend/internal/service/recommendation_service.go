@@ -80,16 +80,18 @@ func (s *RecommendationService) Request(ctx context.Context, userID string, sele
 		// не фатально
 	}
 
-	wJSON, _ := json.Marshal(weights)
-	entry := &domain.RecommendationHistory{
-		UserID:      userID,
-		TaskID:      taskID,
-		SelectedIDs: selectedIDs,
-		Direction:   direction,
-		Weights:     string(wJSON),
-	}
-	if err := s.repo.SaveHistory(ctx, entry); err != nil {
-		return "", err
+	if !contextual {
+		wJSON, _ := json.Marshal(weights)
+		entry := &domain.RecommendationHistory{
+			UserID:      userID,
+			TaskID:      taskID,
+			SelectedIDs: selectedIDs,
+			Direction:   direction,
+			Weights:     string(wJSON),
+		}
+		if err := s.repo.SaveHistory(ctx, entry); err != nil {
+			return "", err
+		}
 	}
 	return taskID, nil
 }
