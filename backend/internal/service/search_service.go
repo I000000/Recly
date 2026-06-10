@@ -147,6 +147,8 @@ type rawHit struct {
 	Genres          interface{} `json:"genres"`
 	AverageRating   interface{} `json:"average_rating"`
 	VoteAverage     interface{} `json:"vote_average"`
+	RatingsCount    interface{} `json:"ratings_count"`
+	VoteCount       interface{} `json:"vote_count"`
 	PublicationYear interface{} `json:"publication_year"`
 	ReleaseDate     interface{} `json:"release_date"`
 	Description     string      `json:"description"`
@@ -170,10 +172,10 @@ func (r *rawHit) toItemDetail() domain.ItemDetail {
 		Runtime:  toInt(r.Runtime),
 	}
 
-	// Год и рейтинг зависят от типа
 	if r.Type == "book" {
 		item.Year = toInt(r.PublicationYear)
 		item.Rating = toFloat(r.AverageRating)
+		item.Popularity = toInt(r.RatingsCount)
 		item.Description = r.Description
 	} else { // movie
 		releaseStr := cleanString(fmt.Sprint(r.ReleaseDate))
@@ -181,6 +183,7 @@ func (r *rawHit) toItemDetail() domain.ItemDetail {
 			item.Year = parseYear(releaseStr)
 		}
 		item.Rating = toFloat(r.VoteAverage)
+		item.Popularity = toInt(r.VoteCount)
 		item.Description = cleanString(r.Overview)
 	}
 	return item
@@ -212,6 +215,64 @@ func (s *SearchService) Search(query string) ([]domain.ItemDetail, error) {
 		Hits []rawHit `json:"hits"`
 	}
 	json.Unmarshal(respBytes, &result)
+
+	items := make([]domain.ItemDetail, len(result.Hits))
+	for i, hit := range result.Hits {
+		items[i] = hit.toItemDetail()
+	}
+	return items, nil
+}
+
+func (s *SearchService) SearchWithFilters(query, itemType, genre, sort string, limit, offset int) ([]domain.ItemDetail, error) {
+	filters := []string{}
+	if itemType != "" && itemType != "all" {
+		filters = append(filters, fmt.Sprintf("type = \"%s\"", itemType))
+	}
+	if genre != "" {
+		filters = append(filters, fmt.Sprintf("genres = \"%s\"", strings.ToLower(genre)))
+	}
+	filter := strings.Join(filters, " AND ")
+
+	if sort == "" {
+		switch itemType {
+		case "book":
+			sort = "ratings_count:desc"
+		case "movie":
+			sort = "vote_count:desc"
+		default:
+			sort = ""
+		}
+	}
+
+	payload := map[string]interface{}{
+		"q":      query,
+		"limit":  limit,
+		"offset": offset,
+		"filter": filter,
+	}
+	if sort != "" {
+		payload["sort"] = []string{sort}
+	}
+
+	bodyBytes, _ := json.Marshal(payload)
+	url := fmt.Sprintf("%s/indexes/items/search", s.meiliURL)
+	req, _ := http.NewRequest("POST", url, bytes.NewBuffer(bodyBytes))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+s.meiliKey)
+
+	resp, err := s.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	respBytes, _ := io.ReadAll(resp.Body)
+	var result struct {
+		Hits []rawHit `json:"hits"`
+	}
+	if err := json.Unmarshal(respBytes, &result); err != nil {
+		return nil, err
+	}
 
 	items := make([]domain.ItemDetail, len(result.Hits))
 	for i, hit := range result.Hits {

@@ -9,6 +9,7 @@ type ItemDetail struct {
 
 	Year        int     `json:"year,omitempty"`
 	Rating      float64 `json:"rating,omitempty"`
+	Popularity  int     `json:"popularity,omitempty"`
 	Description string  `json:"description,omitempty"`
 
 	Authors  string `json:"authors,omitempty"`

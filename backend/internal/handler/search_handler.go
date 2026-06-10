@@ -2,11 +2,11 @@ package handler
 
 import (
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/I000000/recly/internal/domain"
 	"github.com/I000000/recly/internal/service"
-
 	"github.com/gin-gonic/gin"
 )
 
@@ -20,11 +20,18 @@ func NewSearchHandler(svc *service.SearchService) *SearchHandler {
 
 func (h *SearchHandler) Search(c *gin.Context) {
 	query := c.Query("q")
-	if len(query) == 0 {
+	itemType := c.DefaultQuery("type", "all") // book, movie, all
+	genre := c.Query("genre")
+	sort := c.Query("sort")
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+
+	if query == "" && genre == "" && (itemType == "" || itemType == "all") {
 		c.JSON(http.StatusOK, gin.H{"results": []domain.ItemDetail{}})
 		return
 	}
-	results, err := h.searchService.Search(query)
+
+	results, err := h.searchService.SearchWithFilters(query, itemType, genre, sort, limit, offset)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
