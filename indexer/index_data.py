@@ -77,7 +77,16 @@ def add_in_batches(documents, label):
 
 print("Loading books...", flush=True)
 books = pd.read_parquet(BOOK_PQ,
-                         columns=['book_id','title','authors','image_url','genres','average_rating','description','publication_year'])
+                         columns=['book_id',
+                                  'title',
+                                  'authors',
+                                  'image_url',
+                                  'genres',
+                                  'average_rating',
+                                  'description',
+                                  'publication_year',
+                                  'ratings_count'
+                                  ])
 books['type'] = 'book'
 books['id'] = books['book_id'].astype(str)
 if 'authors' in books.columns:
@@ -88,7 +97,18 @@ print(f"All books processed ({len(documents)} total).", flush=True)
 
 print("Loading movies...", flush=True)
 movies = pd.read_parquet(MOVIE_PQ,
-                         columns=['movie_id','title','poster_full_url','genres','vote_average','director','cast','overview','release_date','runtime'])
+                         columns=['movie_id',
+                                  'title',
+                                  'poster_full_url',
+                                  'genres',
+                                  'vote_average',
+                                  'director',
+                                  'cast',
+                                  'overview',
+                                  'release_date',
+                                  'runtime',
+                                  'vote_count'
+                                  ])
 movies['type'] = 'movie'
 movies['id'] = movies['movie_id'].astype(str)
 movies['image_url'] = movies['poster_full_url']
@@ -102,6 +122,7 @@ print(f"All movies processed ({len(documents)} total).", flush=True)
 
 print("Updating index settings...", flush=True)
 client.index('items').update_searchable_attributes(['title'])
-client.index('items').update_filterable_attributes(['id', 'type'])
+client.index('items').update_filterable_attributes(['id', 'type', 'genres'])
+client.index('items').update_sortable_attributes(['ratings_count', 'vote_count', 'average_rating', 'vote_average'])
 client.index('items').update_displayed_attributes(['*'])
 print("Indexing completed.", flush=True)
