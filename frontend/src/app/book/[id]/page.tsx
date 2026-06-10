@@ -28,19 +28,8 @@ export default function BookPage() {
   });
 
   const normalizeGenres = (genres: any): string[] => {
-    let items: string[] = [];
-    if (Array.isArray(genres)) {
-      items = genres.map(g => String(g));
-    } else if (typeof genres === 'string') {
-      items = genres.split(',').map(s => s.trim());
-    }
-    const flat = items.flatMap(item =>
-      item.split(',').map(s => {
-        const trimmed = s.trim().toLowerCase();
-        return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
-      })
-    );
-    return [...new Set(flat)].filter(Boolean);
+    if (!Array.isArray(genres)) return [];
+    return genres.map(g => g.charAt(0).toUpperCase() + g.slice(1).toLowerCase());
   };
 
   const { data: similarBooks, isLoading: booksLoading } = useQuery<any[]>({
@@ -161,7 +150,13 @@ export default function BookPage() {
           <div className="mt-3 overflow-x-auto no-scrollbar">
             <div className="flex gap-1 min-w-max">
               {normalizeGenres(book.genres).map((g: string) => (
-                <span key={g} className="px-2 py-0.5 bg-secondary rounded-full text-xs whitespace-nowrap">{g}</span>
+                <button
+                  key={g}
+                  onClick={() => router.push(`/book/genre/${encodeURIComponent(g.toLowerCase())}`)}
+                  className="px-2 py-0.5 bg-secondary rounded-full text-xs whitespace-nowrap hover:bg-primary/20 transition"
+                >
+                  {g}
+                </button>
               ))}
             </div>
           </div>
@@ -194,7 +189,7 @@ export default function BookPage() {
           ) : similarBooks && similarBooks.length > 0 ? (
             <div className="scroll-container pb-2">
               <div className="flex gap-2 min-w-max">
-                {similarBooks.slice(0, 10).map((item: any) => (
+                {similarBooks.slice(0, 20).map((item: any) => (
                   <div key={item.id} className="w-28 flex-shrink-0">
                     <BookCard book={{ book_id: item.id, title: item.title, image_url: item.image }} />
                   </div>
@@ -213,7 +208,7 @@ export default function BookPage() {
           ) : similarMovies && similarMovies.length > 0 ? (
             <div className="scroll-container pb-2">
               <div className="flex gap-2 min-w-max">
-                {similarMovies.slice(0, 10).map((item: any) => (
+                {similarMovies.slice(0, 20).map((item: any) => (
                   <div key={item.id} className="w-28 flex-shrink-0">
                     <MovieCard movie={{ movie_id: item.id, title: item.title, poster_url: item.image }} />
                   </div>

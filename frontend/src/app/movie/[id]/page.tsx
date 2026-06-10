@@ -28,19 +28,8 @@ export default function MoviePage() {
   });
 
   const normalizeGenres = (genres: any): string[] => {
-    let items: string[] = [];
-    if (Array.isArray(genres)) {
-      items = genres.map(g => String(g));
-    } else if (typeof genres === 'string') {
-      items = genres.split(',').map(s => s.trim());
-    }
-    const flat = items.flatMap(item =>
-      item.split(',').map(s => {
-        const trimmed = s.trim().toLowerCase();
-        return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
-      })
-    );
-    return [...new Set(flat)].filter(Boolean);
+    if (!Array.isArray(genres)) return [];
+    return genres.map(g => g.charAt(0).toUpperCase() + g.slice(1).toLowerCase());
   };
 
   const { data: similarMovies, isLoading: moviesLoading } = useQuery<any[]>({
@@ -171,7 +160,13 @@ export default function MoviePage() {
           <div className="mt-3 overflow-x-auto no-scrollbar">
             <div className="flex gap-1 min-w-max">
               {normalizeGenres(movie.genres).map((g: string) => (
-                <span key={g} className="px-2 py-0.5 bg-secondary rounded-full text-xs whitespace-nowrap">{g}</span>
+                <button
+                  key={g}
+                  onClick={() => router.push(`/movie/genre/${encodeURIComponent(g.toLowerCase())}`)}
+                  className="px-2 py-0.5 bg-secondary rounded-full text-xs whitespace-nowrap hover:bg-primary/20 transition"
+                >
+                  {g}
+                </button>
               ))}
             </div>
           </div>
