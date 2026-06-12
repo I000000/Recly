@@ -11,11 +11,22 @@ export type SelectableItem = {
   type: 'book' | 'movie';
   image?: string;
   year?: number;
-  creator?: string;   // автор или режиссёр
+  creator?: string;
 };
 
-export default function ItemSelector({ onSelect }: { onSelect: (item: SelectableItem) => void }) {
-  const [query, setQuery] = useState('');
+type ItemSelectorProps = {
+  onSelect: (item: SelectableItem) => void;
+  searchQuery?: string;
+  setSearchQuery?: (query: string) => void;
+  expandResults?: boolean;
+};
+
+export default function ItemSelector({ onSelect, searchQuery: externalQuery, setSearchQuery: externalSetQuery, expandResults }: ItemSelectorProps) {
+  const [internalQuery, setInternalQuery] = useState('');
+  const isControlled = externalQuery !== undefined && externalSetQuery !== undefined;
+  const query = isControlled ? externalQuery : internalQuery;
+  const setQuery = isControlled ? externalSetQuery : setInternalQuery;
+
   const [items, setItems] = useState<SelectableItem[]>([]);
   const [loading, setLoading] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -51,7 +62,7 @@ export default function ItemSelector({ onSelect }: { onSelect: (item: Selectable
   }, [query]);
 
   return (
-    <div>
+    <div className={expandResults ? "flex flex-col h-full" : ""}>
       <Input
         value={query}
         onChange={(e) => setQuery(e.target.value)}
@@ -63,7 +74,7 @@ export default function ItemSelector({ onSelect }: { onSelect: (item: Selectable
           <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
         </div>
       )}
-      <div className="space-y-2 max-h-60 overflow-y-auto">
+      <div className={expandResults ? "flex-1 overflow-y-auto" : "space-y-2 max-h-60 overflow-y-auto"}>
         {items.map((item) => (
           <div
             key={`${item.type}-${item.id}`}
