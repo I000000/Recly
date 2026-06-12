@@ -7,6 +7,7 @@ import (
 	"io"
 	"math"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -330,7 +331,7 @@ func (s *SearchService) GetItems(ids []string, itemType string) ([]domain.ItemDe
 }
 
 func (s *SearchService) GetGenres(itemType string) ([]string, error) {
-	var filter string
+	filter := ""
 	if itemType != "" && itemType != "all" {
 		filter = fmt.Sprintf("type = \"%s\"", itemType)
 	}
@@ -338,18 +339,11 @@ func (s *SearchService) GetGenres(itemType string) ([]string, error) {
 		"q":      "",
 		"filter": filter,
 		"facets": []string{"genres"},
-		"limit":  0,
+		"limit":  1,
 	}
-	bodyBytes, err := json.Marshal(payload)
-	if err != nil {
-		return nil, err
-	}
-
+	bodyBytes, _ := json.Marshal(payload)
 	url := fmt.Sprintf("%s/indexes/items/search", s.meiliURL)
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(bodyBytes))
-	if err != nil {
-		return nil, err
-	}
+	req, _ := http.NewRequest("POST", url, bytes.NewBuffer(bodyBytes))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+s.meiliKey)
 
@@ -360,24 +354,23 @@ func (s *SearchService) GetGenres(itemType string) ([]string, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("meilisearch returned status %d", resp.StatusCode)
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("meilisearch returned %d: %s", resp.StatusCode, string(body))
 	}
 
 	var result struct {
-		Facets struct {
-			Genres []struct {
-				Value string `json:"value"`
-				Count int    `json:"count"`
-			} `json:"genres"`
-		} `json:"facets"`
+		FacetDistribution struct {
+			Genres map[string]int `json:"genres"`
+		} `json:"facetDistribution"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, err
 	}
 
-	genres := make([]string, len(result.Facets.Genres))
-	for i, g := range result.Facets.Genres {
-		genres[i] = g.Value
+	genres := make([]string, 0, len(result.FacetDistribution.Genres))
+	for g := range result.FacetDistribution.Genres {
+		genres = append(genres, g)
 	}
+	sort.Strings(genres)
 	return genres, nil
 }
