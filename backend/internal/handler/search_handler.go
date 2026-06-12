@@ -55,3 +55,13 @@ func (h *SearchHandler) BatchGetItems(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"items": items})
 }
+
+func (h *SearchHandler) GetGenres(c *gin.Context) {
+	itemType := c.DefaultQuery("type", "all")
+	genres, err := h.searchService.GetGenres(itemType)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"genres": genres})
+}

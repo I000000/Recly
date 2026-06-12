@@ -39,6 +39,7 @@ func Setup(
 			protected.GET("/user/library/movies", libH.GetMovies)
 			protected.GET("/search", searchH.Search)
 			protected.GET("/items/batch", searchH.BatchGetItems)
+			protected.GET("/genres", searchH.GetGenres)
 
 			// рекомендации
 			protected.POST("/recommend", recH.Request)

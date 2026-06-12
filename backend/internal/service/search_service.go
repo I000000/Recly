@@ -328,3 +328,56 @@ func (s *SearchService) GetItems(ids []string, itemType string) ([]domain.ItemDe
 	}
 	return items, nil
 }
+
+func (s *SearchService) GetGenres(itemType string) ([]string, error) {
+	var filter string
+	if itemType != "" && itemType != "all" {
+		filter = fmt.Sprintf("type = \"%s\"", itemType)
+	}
+	payload := map[string]interface{}{
+		"q":      "",
+		"filter": filter,
+		"facets": []string{"genres"},
+		"limit":  0,
+	}
+	bodyBytes, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+
+	url := fmt.Sprintf("%s/indexes/items/search", s.meiliURL)
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(bodyBytes))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+s.meiliKey)
+
+	resp, err := s.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("meilisearch returned status %d", resp.StatusCode)
+	}
+
+	var result struct {
+		Facets struct {
+			Genres []struct {
+				Value string `json:"value"`
+				Count int    `json:"count"`
+			} `json:"genres"`
+		} `json:"facets"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+
+	genres := make([]string, len(result.Facets.Genres))
+	for i, g := range result.Facets.Genres {
+		genres[i] = g.Value
+	}
+	return genres, nil
+}
