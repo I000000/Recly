@@ -14,6 +14,8 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o /recly-ap
 FROM alpine:3.20
 
 RUN apk add --no-cache ca-certificates tzdata
+WORKDIR /app
+RUN mkdir -p /app/uploads
 COPY --from=builder /recly-api /usr/local/bin/recly-api
 
 EXPOSE 8080

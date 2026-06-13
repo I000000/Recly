@@ -1,13 +1,13 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
-import { Trash2, BookOpen, Film, History, Bookmark, ChevronRight, ChevronLeft, Loader2 } from 'lucide-react';
+import Link from 'next/link';
+import { BookOpen, Film, History, Bookmark, Loader2, Settings, Camera } from 'lucide-react';
 import api from '@/lib/api';
 import MovieCard from '@/components/movie-card';
 import BookCard from '@/components/book-card';
-import { Button } from '@/components/ui/button';
 
 interface HistoryEntry {
   id: string;
@@ -18,12 +18,33 @@ interface HistoryEntry {
   created_at: string;
 }
 
+interface ViewedItem {
+  id: string;
+  item_id: string;
+  item_type: 'book' | 'movie';
+  viewed_at: string;
+}
+
+interface SavedItem {
+  id: string;
+  item_id: string;
+  item_type: 'book' | 'movie';
+  saved_at: string;
+}
+
 export default function ProfilePage() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
 
-  const [showAllSaved, setShowAllSaved] = useState(false);
+  // Профиль
+  const { data: profile, isLoading: profileLoading } = useQuery({
+    queryKey: ['userProfile'],
+    queryFn: async () => (await api.get('/api/user/profile')).data,
+  });
 
+  // Лайки
   const { data: likedMoviesRaw } = useQuery<string[]>({
     queryKey: ['likedMovies'],
     queryFn: async () => (await api.get('/api/user/library/movies')).data.movies.map((m: any) => m.movie_id),
@@ -34,35 +55,33 @@ export default function ProfilePage() {
     queryFn: async () => (await api.get('/api/user/library/books')).data.books.map((b: any) => b.book_id),
     staleTime: 1000 * 60 * 30,
   });
+  const likedMovies = likedMoviesRaw ?? [];
+  const likedBooks = likedBooksRaw ?? [];
 
-  // Новые сохранённые элементы
-  const {
-    data: savedRaw,
-    isLoading: savedLoading,
-    isError: savedError,
-  } = useQuery<any[]>({
+  // Сохранённые
+  const { data: savedRaw, isLoading: savedLoading, isError: savedError } = useQuery<SavedItem[]>({
     queryKey: ['saved'],
     queryFn: async () => (await api.get('/api/user/saved-items')).data.saved,
     staleTime: 5 * 60 * 1000,
-    gcTime: 30 * 60 * 1000,
   });
+  const saved = savedRaw ?? [];
 
-  const {
-    data: historyRaw,
-    isLoading: historyLoading,
-    isError: historyError,
-  } = useQuery<HistoryEntry[]>({
+  // История рекомендаций
+  const { data: historyRaw, isLoading: historyLoading, isError: historyError } = useQuery<HistoryEntry[]>({
     queryKey: ['history'],
     queryFn: async () => (await api.get('/api/user/recommendations/history')).data.history,
     staleTime: 5 * 60 * 1000,
-    gcTime: 30 * 60 * 1000,
   });
-
-  const likedMovies = likedMoviesRaw ?? [];
-  const likedBooks = likedBooksRaw ?? [];
-  const saved = savedRaw ?? [];
   const history = historyRaw ?? [];
 
+  // Просмотренные
+  const { data: viewedRaw, isLoading: viewedLoading, isError: viewedError } = useQuery<ViewedItem[]>({
+    queryKey: ['views'],
+    queryFn: async () => (await api.get('/api/user/views')).data.views || [],
+    staleTime: 2 * 60 * 1000,
+  });
+
+  // Вычисление ID
   const recommendedIds = useMemo(() => {
     const idsSet = new Set<string>();
     history.forEach(entry => {
@@ -74,30 +93,29 @@ export default function ProfilePage() {
     return Array.from(idsSet).slice(0, 40);
   }, [history]);
 
-  const savedIds = new Set<string>();
-  saved.forEach(item => savedIds.add(item.item_id));
-  const {
-    data: savedMeta = {},
-    isLoading: savedMetaLoading,
-    isError: savedMetaError,
-  } = useQuery<Record<string, any>>({
-    queryKey: ['savedMeta', [...savedIds].sort()],
+  const viewedIds = useMemo(() => {
+    if (!viewedRaw) return [];
+    const sorted = [...viewedRaw].sort((a, b) => new Date(b.viewed_at).getTime() - new Date(a.viewed_at).getTime());
+    return sorted.map(v => v.item_id);
+  }, [viewedRaw]);
+
+  const savedIds = saved.map(item => item.item_id);
+
+  // Метаданные
+  const { data: savedMeta = {}, isLoading: savedMetaLoading, isError: savedMetaError } = useQuery<Record<string, any>>({
+    queryKey: ['savedMeta', savedIds],
     queryFn: async () => {
-      if (savedIds.size === 0) return {};
-      const res = await api.get(`/api/items/batch?ids=${[...savedIds].join(',')}&type=all`);
+      if (savedIds.length === 0) return {};
+      const res = await api.get(`/api/items/batch?ids=${savedIds.join(',')}&type=all`);
       const map: Record<string, any> = {};
       (res.data.items || []).forEach((item: any) => (map[item.id] = item));
       return map;
     },
-    enabled: savedIds.size > 0,
+    enabled: savedIds.length > 0,
     staleTime: 10 * 60 * 1000,
   });
 
-  const {
-    data: historyMeta = {},
-    isLoading: historyMetaLoading,
-    isError: historyMetaError,
-  } = useQuery<Record<string, any>>({
+  const { data: historyMeta = {}, isLoading: historyMetaLoading, isError: historyMetaError } = useQuery<Record<string, any>>({
     queryKey: ['historyMeta', recommendedIds],
     queryFn: async () => {
       if (recommendedIds.length === 0) return {};
@@ -110,76 +128,101 @@ export default function ProfilePage() {
     staleTime: 10 * 60 * 1000,
   });
 
+  const { data: viewedMeta = {}, isLoading: viewedMetaLoading, isError: viewedMetaError } = useQuery<Record<string, any>>({
+    queryKey: ['viewedMeta', viewedIds],
+    queryFn: async () => {
+      if (viewedIds.length === 0) return {};
+      const res = await api.get(`/api/items/batch?ids=${viewedIds.join(',')}&type=all`);
+      const map: Record<string, any> = {};
+      (res.data.items || []).forEach((item: any) => (map[item.id] = item));
+      return map;
+    },
+    enabled: viewedIds.length > 0,
+    staleTime: 10 * 60 * 1000,
+  });
+
+  // Мутации
   const deleteSaved = useMutation({
     mutationFn: (id: string) => api.delete(`/api/user/saved-items/${id}`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['saved'] }),
   });
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC';
-    router.push('/login');
+  const uploadAvatar = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('avatar', file);
+      const res = await api.post('/api/user/avatar', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      return res.data.avatar_url;
+    },
+    onSuccess: (newAvatarUrl) => {
+      queryClient.setQueryData(['userProfile'], (old: any) => ({ ...old, avatar_url: newAvatarUrl }));
+      queryClient.invalidateQueries({ queryKey: ['userProfile'] });
+      setUploading(false);
+    },
+    onError: () => setUploading(false),
+  });
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setUploading(true);
+      uploadAvatar.mutate(file);
+    }
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const renderRecommendationCard = (toItem: any, onDelete?: () => void, cardKey?: string) => {
-    if (!toItem) return null;
+  // Вспомогательная функция: карточка рекомендации
+  const renderCard = (item: any) => {
+    if (!item) return null;
     return (
-      <div key={cardKey} className="relative flex-shrink-0 w-36 group">
-        {toItem.type === 'movie' ? (
-          <MovieCard movie={{ movie_id: toItem.id, title: toItem.title, poster_url: toItem.image }} aspectRatio="2/3" />
+      <div className="relative flex-shrink-0 w-36 group">
+        {item.type === 'movie' ? (
+          <MovieCard movie={{ movie_id: item.id, title: item.title, poster_url: item.image }} aspectRatio="2/3" />
         ) : (
-          <BookCard book={{ book_id: toItem.id, title: toItem.title, image_url: toItem.image }} aspectRatio="2/3" />
+          <BookCard book={{ book_id: item.id, title: item.title, image_url: item.image }} aspectRatio="2/3" />
         )}
       </div>
     );
   };
 
-  const renderHistorySection = (
-    items: string[],
-    renderItem: (id: string) => React.ReactNode,
+  // Универсальный рендер горизонтальной секции (6 элементов + See More)
+  const renderHorizontalSection = (
+    itemIds: string[],
+    itemsMeta: Record<string, any>,
     emptyMessage: string,
     isLoading: boolean,
-    isError: boolean
+    isError: boolean,
+    seeMorePath: string,
   ) => {
     if (isLoading) {
-      return (
-        <div className="flex justify-center py-12">
-          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-        </div>
-      );
+      return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>;
     }
     if (isError) {
       return <p className="text-destructive text-center py-4">Failed to load data</p>;
     }
-    if (items.length === 0) {
+    if (itemIds.length === 0) {
       return <p className="text-muted-foreground py-4">{emptyMessage}</p>;
     }
-  
-    const hasMore = items.length > 6;
-    const visibleIds = hasMore ? items.slice(0, 6) : items;
-    const nextId = hasMore ? items[6] : null;
-    const nextItem = nextId ? historyMeta[nextId] : null;
-  
+
+    const hasMore = itemIds.length > 6;
+    const visibleIds = hasMore ? itemIds.slice(0, 6) : itemIds;
+    const nextId = hasMore ? itemIds[6] : null;
+    const nextItem = nextId ? itemsMeta[nextId] : null;
+
     return (
       <div className="scroll-container pb-2">
         <div className="flex gap-2 min-w-max">
-          {visibleIds.map(id => (
-            <div key={id} className="w-36 flex-shrink-0">
-              {renderItem(id)}
-            </div>
-          ))}
+          {visibleIds.map(id => <div key={id} className="w-36 flex-shrink-0">{renderCard(itemsMeta[id])}</div>)}
           {hasMore && nextItem && (
             <div
-              onClick={() => router.push('/history')}
+              onClick={() => router.push(seeMorePath)}
               className="flex-shrink-0 w-36 relative rounded-xl overflow-hidden border shadow-md group cursor-pointer"
             >
               <div className="w-full aspect-[2/3] relative">
                 {nextItem.image ? (
-                  <img
-                    src={nextItem.image}
-                    alt={nextItem.title || ''}
-                    className="absolute inset-0 w-full h-full object-cover"
-                  />
+                  <img src={nextItem.image} alt={nextItem.title || ''} className="absolute inset-0 w-full h-full object-cover" />
                 ) : (
                   <div className="absolute inset-0 bg-muted flex items-center justify-center text-xs">No poster</div>
                 )}
@@ -190,7 +233,6 @@ export default function ProfilePage() {
                 </div>
               </div>
               <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-1 text-white opacity-100 group-hover:opacity-90 transition-opacity">
-                <BookOpen className="w-6 h-6" />
                 <span className="text-xs font-semibold">See More</span>
               </div>
             </div>
@@ -200,130 +242,93 @@ export default function ProfilePage() {
     );
   };
 
-  const renderScrollableSection = (
-    items: any[],
-    renderItem: (item: any, index: number) => React.ReactNode,
-    showAll: boolean,
-    toggleShowAll: () => void,
-    emptyMessage: string,
-    isLoading: boolean,
-    isError: boolean
-  ) => {
-    if (isLoading) {
-      return (
-        <div className="flex justify-center py-12">
-          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-        </div>
-      );
-    }
-    if (isError) {
-      return <p className="text-destructive text-center py-4">Failed to load data</p>;
-    }
-    if (items.length === 0) {
-      return <p className="text-muted-foreground py-4">{emptyMessage}</p>;
-    }
-  
-    const displayedItems = showAll ? items : items.slice(0, 10);
-    return (
-      <div>
-        {!showAll ? (
-          <div className="scroll-container pb-2">
-            <div className="flex gap-2 min-w-max">
-              {displayedItems.map((item, idx) => (
-                <div key={item.id ?? idx} className="w-36 flex-shrink-0">
-                  {renderItem(item, idx)}
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
-            {displayedItems.map((item, idx) => renderItem(item, idx))}
-          </div>
-        )}
-        {items.length > 10 && (
-          <button onClick={toggleShowAll} className="mt-3 text-sm text-primary hover:underline flex items-center gap-1">
-            {showAll ? 'Show less' : 'See all'}
-            {showAll ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-          </button>
-        )}
-      </div>
-    );
-  };
+  if (profileLoading) {
+    return <div className="min-h-screen flex justify-center items-center"><Loader2 className="w-8 h-8 animate-spin" /></div>;
+  }
 
   return (
     <div className="min-h-screen pb-20 mx-auto max-w-full overflow-x-hidden">
-      <div className="px-4 pt-6 pb-2">
+      {/* Шапка */}
+      <div className="px-4 pt-6 pb-2 flex justify-between items-center">
         <h1 className="text-2xl font-bold tracking-tight">Your Profile</h1>
+        <Link href="/settings" className="p-2 rounded-full hover:bg-secondary md:hidden">
+          <Settings className="w-5 h-5" />
+        </Link>
       </div>
-  
-      <div className="px-4 py-4">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-          <div className="bg-secondary/30 rounded-xl p-3 sm:p-4 flex items-center gap-2 sm:gap-3">
-            <Film className="w-5 h-5 sm:w-6 sm:h-6 text-primary flex-shrink-0" />
-            <div className="min-w-0">
-              <p className="text-xl sm:text-2xl font-bold truncate">{likedMovies.length}</p>
-              <p className="text-xs sm:text-sm text-muted-foreground truncate">Movies</p>
-            </div>
+
+      {/* Аватар + статистика */}
+      <div className="px-4 py-4 flex flex-col md:flex-row md:items-start gap-6">
+        <div className="flex flex-col items-center gap-2">
+          <div onClick={() => fileInputRef.current?.click()} className="relative w-28 h-28 rounded-full overflow-hidden bg-secondary cursor-pointer">
+            {profile?.avatar_url ? (
+              <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-5xl font-bold text-muted-foreground">
+                {profile?.name?.[0]?.toUpperCase() || 'U'}
+              </div>
+            )}
+            <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleFileChange} className="hidden" />
           </div>
-          <div className="bg-secondary/30 rounded-xl p-3 sm:p-4 flex items-center gap-2 sm:gap-3">
-            <BookOpen className="w-5 h-5 sm:w-6 sm:h-6 text-primary flex-shrink-0" />
-            <div className="min-w-0">
-              <p className="text-xl sm:text-2xl font-bold truncate">{likedBooks.length}</p>
-              <p className="text-xs sm:text-sm text-muted-foreground truncate">Books</p>
-            </div>
-          </div>
-          <div className="bg-secondary/30 rounded-xl p-3 sm:p-4 flex items-center gap-2 sm:gap-3">
-            <History className="w-5 h-5 sm:w-6 sm:h-6 text-primary flex-shrink-0" />
-            <div className="min-w-0">
-              <p className="text-xl sm:text-2xl font-bold truncate">{history.length}</p>
-              <p className="text-xs sm:text-sm text-muted-foreground truncate">Requests</p>
-            </div>
-          </div>
-          <div className="bg-secondary/30 rounded-xl p-3 sm:p-4 flex items-center gap-2 sm:gap-3">
-            <Bookmark className="w-5 h-5 sm:w-6 sm:h-6 text-primary flex-shrink-0" />
-            <div className="min-w-0">
-              <p className="text-xl sm:text-2xl font-bold truncate">{saved.length}</p>
-              <p className="text-xs sm:text-sm text-muted-foreground truncate">Saved</p>
-            </div>
+          <div className="text-center"><p className="font-semibold text-xl">{profile?.name || 'User'}</p></div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <Link href="/library?tab=movies" className="bg-secondary/30 rounded-xl p-4 hover:bg-secondary/50 transition flex items-center gap-3">
+            <Film className="w-7 h-7 text-primary" />
+            <div><div className="text-2xl font-bold">{likedMovies.length}</div><div className="text-sm text-muted-foreground">Movies</div></div>
+          </Link>
+          <Link href="/library?tab=books" className="bg-secondary/30 rounded-xl p-4 hover:bg-secondary/50 transition flex items-center gap-3">
+            <BookOpen className="w-7 h-7 text-primary" />
+            <div><div className="text-2xl font-bold">{likedBooks.length}</div><div className="text-sm text-muted-foreground">Books</div></div>
+          </Link>
+          <Link href="/history" className="bg-secondary/30 rounded-xl p-4 hover:bg-secondary/50 transition flex items-center gap-3">
+            <History className="w-7 h-7 text-primary" />
+            <div><div className="text-2xl font-bold">{history.length}</div><div className="text-sm text-muted-foreground">Requests</div></div>
+          </Link>
+          <div className="bg-secondary/30 rounded-xl p-4 flex items-center gap-3">
+            <Bookmark className="w-7 h-7 text-primary" />
+            <div><div className="text-2xl font-bold">{saved.length}</div><div className="text-sm text-muted-foreground">Saved</div></div>
           </div>
         </div>
       </div>
-  
+
+      {/* Сохранённые */}
       <div className="px-4 py-4">
         <h2 className="text-xl font-semibold mb-4">Saved</h2>
-        {renderScrollableSection(
-          saved,
-          (item: any) => {
-            const toItem = savedMeta[item.item_id];
-            return renderRecommendationCard(toItem, () => deleteSaved.mutate(item.id), item.id);
-          },
-          showAllSaved,
-          () => setShowAllSaved(!showAllSaved),
+        {renderHorizontalSection(
+          savedIds,
+          savedMeta,
           'No saved items yet.',
           savedLoading || savedMetaLoading,
-          savedError || savedMetaError
+          savedError || savedMetaError,
+          '/saved',
         )}
       </div>
 
+      {/* Недавно просмотренные */}
       <div className="px-4 py-4">
-        <h2 className="text-xl font-semibold mb-4">Recent Activity</h2>
-        {renderHistorySection(
+        <h2 className="text-xl font-semibold mb-4">Recently Viewed</h2>
+        {renderHorizontalSection(
+          viewedIds,
+          viewedMeta,
+          'No views yet.',
+          viewedLoading || viewedMetaLoading,
+          viewedError || viewedMetaError,
+          '/viewed',
+        )}
+      </div>
+
+      {/* Рекомендации из истории */}
+      <div className="px-4 py-4">
+        <h2 className="text-xl font-semibold mb-4">Recently Recommended</h2>
+        {renderHorizontalSection(
           recommendedIds,
-          (id: string) => {
-            const item = historyMeta[id];
-            return renderRecommendationCard(item, undefined, id);
-          },
+          historyMeta,
           'No recommendations yet.',
           historyLoading || historyMetaLoading,
-          historyError || historyMetaError
+          historyError || historyMetaError,
+          '/history',
         )}
-      </div>
-
-      <div className="px-4 pb-8 flex justify-center sm:justify-start">
-        <Button onClick={handleLogout} variant="destructive" className="w-full sm:w-auto sm:min-w-[200px]">
-          Log out
-        </Button>
       </div>
     </div>
   );

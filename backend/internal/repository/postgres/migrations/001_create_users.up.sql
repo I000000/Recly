@@ -5,5 +5,6 @@ CREATE TABLE users (
     password_hash VARCHAR(255) NOT NULL,
     name VARCHAR(150),
     onboarding_completed BOOLEAN DEFAULT FALSE NOT NULL,
+    avatar_url TEXT DEFAULT '',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

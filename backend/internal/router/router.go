@@ -13,6 +13,7 @@ func Setup(
 	userH *handler.UserHandler,
 	searchH *handler.SearchHandler,
 	savedItemH *handler.SavedItemHandler,
+	viewedItemH *handler.ViewedItemHandler,
 	secret string,
 ) *gin.Engine {
 	r := gin.New()
@@ -54,6 +55,9 @@ func Setup(
 			// профиль
 			protected.GET("/user/profile", userH.Profile)
 			protected.POST("/user/onboarding/complete", userH.CompleteOnboarding)
+			protected.POST("/user/avatar", userH.UploadAvatar)
+			protected.POST("/user/view", viewedItemH.RecordView)
+			protected.GET("/user/views", viewedItemH.GetRecentViews)
 		}
 	}
 	return r

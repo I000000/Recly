@@ -3,9 +3,13 @@ module.exports = {
   async rewrites() {
     return [
       {
-        source: '/api/:path*', // любой запрос к /api/...
-        destination: 'http://192.168.0.192:8080/api/:path*' // ...проксируется на реальный бэкенд
-      }
-    ]
-  }
-}
+        source: '/api/:path*',
+        destination: 'http://192.168.0.192:8080/api/:path*',
+      },
+      {
+        source: '/uploads/:path*',
+        destination: 'http://192.168.0.192:8080/uploads/:path*',
+      },
+    ];
+  },
+};

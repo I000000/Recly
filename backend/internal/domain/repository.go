@@ -8,6 +8,7 @@ type UserRepository interface {
 	GetByEmail(ctx context.Context, email string) (*User, error)
 	GetByID(ctx context.Context, id string) (*User, error)
 	UpdateOnboardingCompleted(ctx context.Context, userID string, completed bool) error
+	UpdateAvatar(ctx context.Context, userID, avatarURL string) error
 }
 
 //go:generate mockery --name TokenRepository --output ../../mocks --outpkg mocks --case underscore
@@ -36,4 +37,10 @@ type RecommendationRepository interface {
 	DeleteSavedRecommendation(ctx context.Context, id string) error
 	GetSavedRecommendations(ctx context.Context, userID string) ([]SavedRecommendation, error)
 	UpdateResult(ctx context.Context, taskID string, resultJSON string) error // ← добавить
+}
+
+//go:generate mockery --name ViewedItemRepository --output ../../mocks --outpkg mocks --case underscore
+type ViewedItemRepository interface {
+	RecordView(ctx context.Context, userID, itemType, itemID string) error
+	GetRecentViews(ctx context.Context, userID string, limit int) ([]ViewedItem, error)
 }

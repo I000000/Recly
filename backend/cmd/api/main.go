@@ -56,6 +56,7 @@ func main() {
 	libRepo := postgres.NewLibraryRepo(pool)
 	recRepo := postgres.NewRecommendationRepo(pool)
 	savedItemRepo := postgres.NewSavedItemRepo(pool)
+	viewedItemRepo := postgres.NewViewedItemRepo(pool)
 
 	// Сервисы
 	userService := service.NewUserService(userRepo)
@@ -64,6 +65,7 @@ func main() {
 	recSvc := service.NewRecommendationService(recRepo, publisher, cache, libSvc)
 	searchSvc := service.NewSearchService("http://meilisearch:7700", "aSecretMasterKey")
 	savedItemSvc := service.NewSavedItemService(savedItemRepo)
+	viewedItemSvc := service.NewViewedItemService(viewedItemRepo)
 
 	// Хэндлеры
 	authH := handler.NewAuthHandler(authSvc)
@@ -72,8 +74,11 @@ func main() {
 	userH := handler.NewUserHandler(userService)
 	searchH := handler.NewSearchHandler(searchSvc)
 	savedItemH := handler.NewSavedItemHandler(savedItemSvc)
+	viewedItemH := handler.NewViewedItemHandler(viewedItemSvc)
 
-	r := router.Setup(authH, libH, recH, userH, searchH, savedItemH, cfg.JWTSecret)
+	r := router.Setup(authH, libH, recH, userH, searchH, savedItemH, viewedItemH, cfg.JWTSecret)
+
+	r.Static("/uploads", "./uploads")
 
 	srv := &http.Server{Addr: ":" + cfg.ServerPort, Handler: r}
 	go func() {

@@ -1,9 +1,29 @@
-import Link from 'next/link';
+'use client';
+
+import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
+import api from '@/lib/api';
 
 export default function MovieCard({ movie, aspectRatio }: { movie: any; aspectRatio?: string }) {
+  const router = useRouter();
+  const queryClient = useQueryClient();
   const aspect = aspectRatio || '2/3';
+
+  const handleClick = async () => {
+    try {
+      await api.post('/api/user/view', {
+        item_id: movie.movie_id,
+        item_type: 'movie',
+      });
+      queryClient.invalidateQueries({ queryKey: ['views'] });
+    } catch (e) {
+      console.error('Failed to record view', e);
+    }
+    router.push(`/movie/${movie.movie_id}`);
+  };
+
   return (
-    <Link href={`/movie/${movie.movie_id}`} className="block">
+    <div onClick={handleClick} className="block cursor-pointer">
       <div
         className="relative border rounded-xl overflow-hidden shadow-md group"
         style={{ aspectRatio: aspect }}
@@ -24,6 +44,6 @@ export default function MovieCard({ movie, aspectRatio }: { movie: any; aspectRa
           </h3>
         </div>
       </div>
-    </Link>
+    </div>
   );
 }

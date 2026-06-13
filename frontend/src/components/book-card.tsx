@@ -1,9 +1,29 @@
-import Link from 'next/link';
+'use client';
+
+import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
+import api from '@/lib/api';
 
 export default function BookCard({ book, aspectRatio }: { book: any; aspectRatio?: string }) {
+  const router = useRouter();
+  const queryClient = useQueryClient();
   const aspect = aspectRatio || '3/4';
+
+  const handleClick = async () => {
+    try {
+      await api.post('/api/user/view', {
+        item_id: book.book_id,
+        item_type: 'book',
+      });
+      queryClient.invalidateQueries({ queryKey: ['views'] });
+    } catch (e) {
+      console.error('Failed to record view', e);
+    }
+    router.push(`/book/${book.book_id}`);
+  };
+
   return (
-    <Link href={`/book/${book.book_id}`} className="block">
+    <div onClick={handleClick} className="block cursor-pointer">
       <div
         className="relative border rounded-xl overflow-hidden shadow-md group"
         style={{ aspectRatio: aspect }}
@@ -24,6 +44,6 @@ export default function BookCard({ book, aspectRatio }: { book: any; aspectRatio
           </h3>
         </div>
       </div>
-    </Link>
+    </div>
   );
 }
