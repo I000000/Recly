@@ -35,9 +35,9 @@ func (r *UserRepo) Create(ctx context.Context, user *domain.User) error {
 func (r *UserRepo) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
 	user := &domain.User{}
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, email, password_hash, name, created_at FROM users WHERE email = $1`,
+		`SELECT id, email, password_hash, name, created_at, onboarding_completed FROM users WHERE email = $1`,
 		email,
-	).Scan(&user.ID, &user.Email, &user.PasswordHash, &user.Name, &user.CreatedAt)
+	).Scan(&user.ID, &user.Email, &user.PasswordHash, &user.Name, &user.CreatedAt, &user.OnboardingCompleted)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, domain.ErrNotFound
@@ -45,4 +45,27 @@ func (r *UserRepo) GetByEmail(ctx context.Context, email string) (*domain.User, 
 		return nil, err
 	}
 	return user, nil
+}
+
+func (r *UserRepo) GetByID(ctx context.Context, id string) (*domain.User, error) {
+	user := &domain.User{}
+	err := r.pool.QueryRow(ctx,
+		`SELECT id, email, password_hash, name, created_at, onboarding_completed FROM users WHERE id = $1`,
+		id,
+	).Scan(&user.ID, &user.Email, &user.PasswordHash, &user.Name, &user.CreatedAt, &user.OnboardingCompleted)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, domain.ErrNotFound
+		}
+		return nil, err
+	}
+	return user, nil
+}
+
+func (r *UserRepo) UpdateOnboardingCompleted(ctx context.Context, userID string, completed bool) error {
+	_, err := r.pool.Exec(ctx,
+		`UPDATE users SET onboarding_completed = $1 WHERE id = $2`,
+		completed, userID,
+	)
+	return err
 }

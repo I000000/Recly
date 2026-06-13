@@ -55,22 +55,23 @@ func main() {
 	tokenRepo := postgres.NewTokenRepo(pool)
 	libRepo := postgres.NewLibraryRepo(pool)
 	recRepo := postgres.NewRecommendationRepo(pool)
-	savedItemRepo := postgres.NewSavedItemRepo(pool) // ← новый репозиторий
+	savedItemRepo := postgres.NewSavedItemRepo(pool)
 
 	// Сервисы
+	userService := service.NewUserService(userRepo)
 	authSvc := service.NewAuthService(userRepo, tokenRepo, cfg.JWTSecret, cfg.AccessTokenTTL, cfg.RefreshTokenTTL)
 	libSvc := service.NewLibraryService(libRepo)
 	recSvc := service.NewRecommendationService(recRepo, publisher, cache, libSvc)
 	searchSvc := service.NewSearchService("http://meilisearch:7700", "aSecretMasterKey")
-	savedItemSvc := service.NewSavedItemService(savedItemRepo) // ← новый сервис
+	savedItemSvc := service.NewSavedItemService(savedItemRepo)
 
 	// Хэндлеры
 	authH := handler.NewAuthHandler(authSvc)
 	libH := handler.NewLibraryHandler(libSvc)
 	recH := handler.NewRecommendationHandler(recSvc)
-	userH := handler.NewUserHandler()
+	userH := handler.NewUserHandler(userService)
 	searchH := handler.NewSearchHandler(searchSvc)
-	savedItemH := handler.NewSavedItemHandler(savedItemSvc) // ← новый обработчик
+	savedItemH := handler.NewSavedItemHandler(savedItemSvc)
 
 	r := router.Setup(authH, libH, recH, userH, searchH, savedItemH, cfg.JWTSecret)
 

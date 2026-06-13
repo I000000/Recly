@@ -11,11 +11,12 @@ var (
 )
 
 type User struct {
-	ID           string    `json:"id"`
-	Email        string    `json:"email"`
-	PasswordHash string    `json:"-"`
-	Name         string    `json:"name"`
-	CreatedAt    time.Time `json:"created_at"`
+	ID                  string    `json:"id"`
+	Email               string    `json:"email"`
+	PasswordHash        string    `json:"-"`
+	Name                string    `json:"name"`
+	OnboardingCompleted bool      `db:"onboarding_completed" json:"onboarding_completed"`
+	CreatedAt           time.Time `json:"created_at"`
 }
 
 type RefreshToken struct {

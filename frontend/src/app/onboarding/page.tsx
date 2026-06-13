@@ -167,7 +167,7 @@ export default function OnboardingPage() {
       router.push('/library');
     },
   });
-
+  
   if (profileLoading || isLoadingGenres) {
     return <div className="min-h-screen flex justify-center items-center"><Loader2 className="w-8 h-8 animate-spin" /></div>;
   }

@@ -53,6 +53,7 @@ func Setup(
 
 			// профиль
 			protected.GET("/user/profile", userH.Profile)
+			protected.POST("/user/onboarding/complete", userH.CompleteOnboarding)
 		}
 	}
 	return r
