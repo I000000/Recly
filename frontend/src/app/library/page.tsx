@@ -121,11 +121,11 @@ export default function LibraryPage() {
         <div className="flex gap-2">
           <button
             onClick={() => handleTabChange('movies')}
-            className={`px-4 py-2 rounded-full text-sm font-medium ${activeTab === 'movies' ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}
+            className={`px-4 py-2 rounded-lg text-sm font-medium ${activeTab === 'movies' ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}
           >Movies</button>
           <button
             onClick={() => handleTabChange('books')}
-            className={`px-4 py-2 rounded-full text-sm font-medium ${activeTab === 'books' ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}
+            className={`px-4 py-2 rounded-lg text-sm font-medium ${activeTab === 'books' ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}
           >Books</button>
         </div>
       </div>

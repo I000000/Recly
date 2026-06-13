@@ -146,10 +146,10 @@ export default function HomePage() {
       </div>
       <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-sm border-b border-border px-4 py-2">
         <div className="flex gap-2">
-          <button onClick={() => handleTabChange('movies')} className={`px-4 py-2 rounded-full text-sm font-medium ${tab === 'movies' ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}>
+          <button onClick={() => handleTabChange('movies')} className={`px-4 py-2 rounded-lg text-sm font-medium ${tab === 'movies' ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}>
             Movies
           </button>
-          <button onClick={() => handleTabChange('books')} className={`px-4 py-2 rounded-full text-sm font-medium ${tab === 'books' ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}>
+          <button onClick={() => handleTabChange('books')} className={`px-4 py-2 rounded-lg text-sm font-medium ${tab === 'books' ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}>
             Books
           </button>
         </div>
