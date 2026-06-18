@@ -151,18 +151,20 @@ export default function OnboardingPage() {
       await api.post('/api/user/onboarding/complete', { completed: true });
     },
     onSuccess: () => {
+      localStorage.removeItem('onboardingPicks');
       queryClient.invalidateQueries({ queryKey: ['likedBooks'] });
       queryClient.invalidateQueries({ queryKey: ['likedMovies'] });
       queryClient.invalidateQueries({ queryKey: ['userProfile'] });
       router.push('/');
     },
   });
-
+  
   const skipOnboarding = useMutation({
     mutationFn: async () => {
       await api.post('/api/user/onboarding/complete', { completed: true });
     },
     onSuccess: () => {
+      localStorage.removeItem('onboardingPicks');
       queryClient.invalidateQueries({ queryKey: ['userProfile'] });
       router.push('/library');
     },
@@ -173,7 +175,7 @@ export default function OnboardingPage() {
   }
 
   return (
-    <div className="min-h-screen pb-36 md:pb-20">
+    <div className="min-h-screen pb-24">
       <div className="px-4 pt-6 pb-2 flex justify-between items-start">
         <div>
           <h1 className="text-2xl font-bold">Choose your favorite movies or books</h1>
@@ -321,7 +323,7 @@ export default function OnboardingPage() {
         </>
       )}
 
-      <div className="fixed bottom-0 left-0 right-0 p-4 flex justify-between items-center z-40 md:left-20 md:right-0 max-md:bottom-16">
+      <div className="fixed bottom-0 left-0 right-0 p-4 flex justify-between items-center z-40">
         <button
           onClick={() => skipOnboarding.mutate()}
           disabled={skipOnboarding.isPending}

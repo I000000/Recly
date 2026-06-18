@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Search, Loader2, Plus, X } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
 import api from '@/lib/api';
 import MovieCard from '@/components/movie-card';
 import BookCard from '@/components/book-card';
@@ -13,13 +14,20 @@ export default function LibraryPage() {
   const [activeTab, setActiveTab] = useState<'movies' | 'books'>('movies');
   const [showAddModal, setShowAddModal] = useState(false);
   const [libraryQuery, setLibraryQuery] = useState('');
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get('tab') as 'movies' | 'books' | null;
 
   useEffect(() => {
-    const saved = sessionStorage.getItem('libraryTab');
-    if (saved === 'movies' || saved === 'books') {
-      setActiveTab(saved);
+    if (tabParam === 'movies' || tabParam === 'books') {
+      setActiveTab(tabParam);
+      sessionStorage.setItem('libraryTab', tabParam);
+    } else {
+      const saved = sessionStorage.getItem('libraryTab');
+      if (saved === 'movies' || saved === 'books') {
+        setActiveTab(saved);
+      }
     }
-  }, []);
+  }, [tabParam]);
 
   const handleTabChange = (tab: 'movies' | 'books') => {
     setActiveTab(tab);

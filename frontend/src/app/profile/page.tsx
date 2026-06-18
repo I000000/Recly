@@ -38,13 +38,11 @@ export default function ProfilePage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
 
-  // Профиль
   const { data: profile, isLoading: profileLoading } = useQuery({
     queryKey: ['userProfile'],
     queryFn: async () => (await api.get('/api/user/profile')).data,
   });
 
-  // Лайки
   const { data: likedMoviesRaw } = useQuery<string[]>({
     queryKey: ['likedMovies'],
     queryFn: async () => (await api.get('/api/user/library/movies')).data.movies.map((m: any) => m.movie_id),
@@ -58,7 +56,6 @@ export default function ProfilePage() {
   const likedMovies = likedMoviesRaw ?? [];
   const likedBooks = likedBooksRaw ?? [];
 
-  // Сохранённые
   const { data: savedRaw, isLoading: savedLoading, isError: savedError } = useQuery<SavedItem[]>({
     queryKey: ['saved'],
     queryFn: async () => (await api.get('/api/user/saved-items')).data.saved,
@@ -66,7 +63,6 @@ export default function ProfilePage() {
   });
   const saved = savedRaw ?? [];
 
-  // История рекомендаций
   const { data: historyRaw, isLoading: historyLoading, isError: historyError } = useQuery<HistoryEntry[]>({
     queryKey: ['history'],
     queryFn: async () => (await api.get('/api/user/recommendations/history')).data.history,
@@ -74,14 +70,12 @@ export default function ProfilePage() {
   });
   const history = historyRaw ?? [];
 
-  // Просмотренные
   const { data: viewedRaw, isLoading: viewedLoading, isError: viewedError } = useQuery<ViewedItem[]>({
     queryKey: ['views'],
     queryFn: async () => (await api.get('/api/user/views')).data.views || [],
     staleTime: 2 * 60 * 1000,
   });
 
-  // Вычисление ID
   const recommendedIds = useMemo(() => {
     const idsSet = new Set<string>();
     history.forEach(entry => {
@@ -101,7 +95,6 @@ export default function ProfilePage() {
 
   const savedIds = saved.map(item => item.item_id);
 
-  // Метаданные
   const { data: savedMeta = {}, isLoading: savedMetaLoading, isError: savedMetaError } = useQuery<Record<string, any>>({
     queryKey: ['savedMeta', savedIds],
     queryFn: async () => {
@@ -141,7 +134,6 @@ export default function ProfilePage() {
     staleTime: 10 * 60 * 1000,
   });
 
-  // Мутации
   const deleteSaved = useMutation({
     mutationFn: (id: string) => api.delete(`/api/user/saved-items/${id}`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['saved'] }),
@@ -173,7 +165,6 @@ export default function ProfilePage() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  // Вспомогательная функция: карточка рекомендации
   const renderCard = (item: any) => {
     if (!item) return null;
     return (
@@ -187,7 +178,6 @@ export default function ProfilePage() {
     );
   };
 
-  // Универсальный рендер горизонтальной секции (6 элементов + See More)
   const renderHorizontalSection = (
     itemIds: string[],
     itemsMeta: Record<string, any>,
@@ -248,7 +238,6 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen pb-20 mx-auto max-w-full overflow-x-hidden">
-      {/* Шапка */}
       <div className="px-4 pt-6 pb-2 flex justify-between items-center">
         <h1 className="text-2xl font-bold tracking-tight">Your Profile</h1>
         <Link href="/settings" className="p-2 rounded-full hover:bg-secondary md:hidden">
@@ -256,8 +245,7 @@ export default function ProfilePage() {
         </Link>
       </div>
 
-      {/* Аватар + статистика */}
-      <div className="px-4 py-4 flex flex-col md:flex-row md:items-start gap-6">
+      <div className="px-4 py-4 flex flex-col md:flex-row md:items-center gap-6">
         <div className="flex flex-col items-center gap-2">
           <div onClick={() => fileInputRef.current?.click()} className="relative w-28 h-28 rounded-full overflow-hidden bg-secondary cursor-pointer">
             {profile?.avatar_url ? (
@@ -281,55 +269,56 @@ export default function ProfilePage() {
             <BookOpen className="w-7 h-7 text-primary" />
             <div><div className="text-2xl font-bold">{likedBooks.length}</div><div className="text-sm text-muted-foreground">Books</div></div>
           </Link>
-          <Link href="/history" className="bg-secondary/30 rounded-xl p-4 hover:bg-secondary/50 transition flex items-center gap-3">
+          <Link href="/viewed" className="bg-secondary/30 rounded-xl p-4 hover:bg-secondary/50 transition flex items-center gap-3">
             <History className="w-7 h-7 text-primary" />
-            <div><div className="text-2xl font-bold">{history.length}</div><div className="text-sm text-muted-foreground">Requests</div></div>
+            <div><div className="text-2xl font-bold">{viewedIds.length}</div><div className="text-sm text-muted-foreground">Viewed</div></div>
           </Link>
-          <div className="bg-secondary/30 rounded-xl p-4 flex items-center gap-3">
+          <Link href="/saved" className="bg-secondary/30 rounded-xl p-4 hover:bg-secondary/50 transition flex items-center gap-3">
             <Bookmark className="w-7 h-7 text-primary" />
             <div><div className="text-2xl font-bold">{saved.length}</div><div className="text-sm text-muted-foreground">Saved</div></div>
-          </div>
+          </Link>
         </div>
       </div>
 
-      {/* Сохранённые */}
-      <div className="px-4 py-4">
-        <h2 className="text-xl font-semibold mb-4">Saved</h2>
-        {renderHorizontalSection(
-          savedIds,
-          savedMeta,
-          'No saved items yet.',
-          savedLoading || savedMetaLoading,
-          savedError || savedMetaError,
-          '/saved',
-        )}
-      </div>
-
-      {/* Недавно просмотренные */}
-      <div className="px-4 py-4">
-        <h2 className="text-xl font-semibold mb-4">Recently Viewed</h2>
-        {renderHorizontalSection(
-          viewedIds,
-          viewedMeta,
-          'No views yet.',
-          viewedLoading || viewedMetaLoading,
-          viewedError || viewedMetaError,
-          '/viewed',
-        )}
-      </div>
-
-      {/* Рекомендации из истории */}
-      <div className="px-4 py-4">
-        <h2 className="text-xl font-semibold mb-4">Recently Recommended</h2>
-        {renderHorizontalSection(
-          recommendedIds,
-          historyMeta,
-          'No recommendations yet.',
-          historyLoading || historyMetaLoading,
-          historyError || historyMetaError,
-          '/history',
-        )}
-      </div>
+      {(savedIds.length > 0 || savedLoading || savedMetaLoading || savedError || savedMetaError) && (
+        <div className="px-4 py-4">
+          <h2 className="text-xl font-semibold mb-4">Saved</h2>
+          {renderHorizontalSection(
+            savedIds,
+            savedMeta,
+            'No saved items yet.',
+            savedLoading || savedMetaLoading,
+            savedError || savedMetaError,
+            '/saved',
+          )}
+        </div>
+      )}
+      {(viewedIds.length > 0 || viewedLoading || viewedMetaLoading || viewedError || viewedMetaError) && (
+        <div className="px-4 py-4">
+          <h2 className="text-xl font-semibold mb-4">Recently Viewed</h2>
+          {renderHorizontalSection(
+            viewedIds,
+            viewedMeta,
+            'No views yet.',
+            viewedLoading || viewedMetaLoading,
+            viewedError || viewedMetaError,
+            '/viewed',
+          )}
+        </div>
+      )}
+      {(recommendedIds.length > 0 || historyLoading || historyMetaLoading || historyError || historyMetaError) && (
+        <div className="px-4 py-4">
+          <h2 className="text-xl font-semibold mb-4">Recently Recommended</h2>
+          {renderHorizontalSection(
+            recommendedIds,
+            historyMeta,
+            'No recommendations yet.',
+            historyLoading || historyMetaLoading,
+            historyError || historyMetaError,
+            '/history',
+          )}
+        </div>
+      )}
     </div>
   );
 }

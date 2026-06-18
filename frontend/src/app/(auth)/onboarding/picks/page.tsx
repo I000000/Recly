@@ -25,7 +25,7 @@ export default function PicksPage() {
   return (
     <div className="min-h-screen pb-20">
       <div className="px-4 pt-6 pb-2 flex items-center gap-3">
-        <button onClick={() => router.back()} className="p-2 rounded-full hover:bg-secondary">
+        <button onClick={() => router.push('/onboarding')} className="...">
           <ArrowLeft className="w-5 h-5" />
         </button>
         <h1 className="text-2xl font-bold tracking-tight">Your current picks</h1>
