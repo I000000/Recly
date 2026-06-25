@@ -14,6 +14,7 @@ import (
 
 	"github.com/I000000/recly/internal/config"
 	"github.com/I000000/recly/internal/handler"
+	"github.com/I000000/recly/internal/meili"
 	"github.com/I000000/recly/internal/rabbitmq"
 	redisPkg "github.com/I000000/recly/internal/redis"
 	"github.com/I000000/recly/internal/repository/postgres"
@@ -50,6 +51,9 @@ func main() {
 	// Redis Cache
 	cache := redisPkg.NewRedisCache(cfg.RedisURL, "", 0)
 
+	// Meilisearch
+	meiliClient := meili.NewClient("http://meilisearch:7700", "aSecretMasterKey")
+
 	// Репозитории
 	userRepo := postgres.NewUserRepo(pool)
 	tokenRepo := postgres.NewTokenRepo(pool)
@@ -63,7 +67,7 @@ func main() {
 	authSvc := service.NewAuthService(userRepo, tokenRepo, cfg.JWTSecret, cfg.AccessTokenTTL, cfg.RefreshTokenTTL)
 	libSvc := service.NewLibraryService(libRepo)
 	recSvc := service.NewRecommendationService(recRepo, publisher, cache, libSvc)
-	searchSvc := service.NewSearchService("http://meilisearch:7700", "aSecretMasterKey")
+	searchSvc := service.NewSearchService(meiliClient)
 	savedItemSvc := service.NewSavedItemService(savedItemRepo)
 	viewedItemSvc := service.NewViewedItemService(viewedItemRepo)
 
