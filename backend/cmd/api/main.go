@@ -63,10 +63,11 @@ func main() {
 	viewedItemRepo := postgres.NewViewedItemRepo(pool)
 
 	// Сервисы
-	userService := service.NewUserService(userRepo)
+	userSvc := service.NewUserService(userRepo)
 	authSvc := service.NewAuthService(userRepo, tokenRepo, cfg.JWTSecret, cfg.AccessTokenTTL, cfg.RefreshTokenTTL)
 	libSvc := service.NewLibraryService(libRepo)
-	recSvc := service.NewRecommendationService(recRepo, publisher, cache, libSvc)
+	sourceSelectorSvc := service.NewSourceSelector(libSvc)
+	recSvc := service.NewRecommendationService(recRepo, publisher, cache, sourceSelectorSvc)
 	searchSvc := service.NewSearchService(meiliClient)
 	savedItemSvc := service.NewSavedItemService(savedItemRepo)
 	viewedItemSvc := service.NewViewedItemService(viewedItemRepo)
@@ -75,7 +76,7 @@ func main() {
 	authH := handler.NewAuthHandler(authSvc)
 	libH := handler.NewLibraryHandler(libSvc)
 	recH := handler.NewRecommendationHandler(recSvc)
-	userH := handler.NewUserHandler(userService)
+	userH := handler.NewUserHandler(userSvc)
 	searchH := handler.NewSearchHandler(searchSvc)
 	savedItemH := handler.NewSavedItemHandler(savedItemSvc)
 	viewedItemH := handler.NewViewedItemHandler(viewedItemSvc)

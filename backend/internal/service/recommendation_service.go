@@ -3,8 +3,6 @@ package service
 import (
 	"context"
 	"encoding/json"
-	"errors"
-	"math"
 	"time"
 
 	"github.com/I000000/recly/internal/domain"
@@ -14,56 +12,55 @@ import (
 )
 
 type RecommendationService struct {
-	repo      domain.RecommendationRepository
-	publisher rabbitmq.Publisher
-	cache     redis.Cache
-	libSvc    *LibraryService
+	repo           domain.RecommendationRepository
+	publisher      rabbitmq.Publisher
+	cache          redis.Cache
+	sourceSelector *SourceSelector
 }
 
 func NewRecommendationService(
 	repo domain.RecommendationRepository,
 	pub rabbitmq.Publisher,
 	cache redis.Cache,
-	libSvc *LibraryService,
+	sourceSelector *SourceSelector,
 ) *RecommendationService {
-	return &RecommendationService{repo: repo, publisher: pub, cache: cache, libSvc: libSvc}
+	return &RecommendationService{
+		repo:           repo,
+		publisher:      pub,
+		cache:          cache,
+		sourceSelector: sourceSelector,
+	}
 }
 
-func (s *RecommendationService) Request(ctx context.Context, userID string, selectedIDs []string, weights map[string]float64, excludeIDs []string, direction string, contextual bool) (string, error) {
-
-	var selectedWeights map[string]float64
-
+func (s *RecommendationService) Request(
+	ctx context.Context,
+	userID string,
+	selectedIDs []string,
+	weights map[string]float64,
+	excludeIDs []string,
+	direction string,
+	contextual bool,
+) (string, error) {
 	if len(selectedIDs) == 0 {
-		books, _ := s.libSvc.GetBooks(ctx, userID)
-		movies, _ := s.libSvc.GetMovies(ctx, userID)
-
-		tau := 30 * 24 * time.Hour
-		now := time.Now()
-		selectedWeights = make(map[string]float64)
-
-		for _, b := range books {
-			key := "book_" + b.BookID
-			selectedIDs = append(selectedIDs, key)
-			age := now.Sub(b.LikedAt)
-			selectedWeights[key] = math.Exp(-age.Seconds() / tau.Seconds())
+		var err error
+		selectedIDs, weights, err = s.sourceSelector.Select(ctx, userID, nil)
+		if err != nil {
+			return "", err
 		}
-		for _, m := range movies {
-			key := "movie_" + m.MovieID
-			selectedIDs = append(selectedIDs, key)
-			age := now.Sub(m.LikedAt)
-			selectedWeights[key] = math.Exp(-age.Seconds() / tau.Seconds())
-		}
-		if len(selectedIDs) == 0 {
-			return "", errors.New("no liked items to recommend from")
+	} else if weights == nil {
+		weights = make(map[string]float64, len(selectedIDs))
+		for _, id := range selectedIDs {
+			weights[id] = 1.0
 		}
 	}
 
 	taskID := uuid.New().String()
+
 	msg := rabbitmq.TaskMessage{
 		TaskID:          taskID,
 		UserID:          userID,
 		SelectedIDs:     selectedIDs,
-		SelectedWeights: selectedWeights,
+		SelectedWeights: weights,
 		ExcludeIDs:      excludeIDs,
 		Direction:       direction,
 		Weights:         weights,
@@ -72,12 +69,13 @@ func (s *RecommendationService) Request(ctx context.Context, userID string, sele
 	if err := s.publisher.PublishRecommendationTask(ctx, msg); err != nil {
 		return "", err
 	}
+
 	if err := s.cache.SetResult(ctx, taskID, redis.RecommendationResult{
 		Status:     "pending",
 		CreatedAt:  time.Now().Unix(),
-		Contextual: contextual, // ← добавить
+		Contextual: contextual,
 	}, 30*time.Minute); err != nil {
-		// не фатально
+		// не фатально, но логируем
 	}
 
 	if !contextual {
@@ -93,6 +91,7 @@ func (s *RecommendationService) Request(ctx context.Context, userID string, sele
 			return "", err
 		}
 	}
+
 	return taskID, nil
 }
 
@@ -115,6 +114,7 @@ func (s *RecommendationService) GetResult(ctx context.Context, taskID string) (*
 			return &redis.RecommendationResult{Status: "done", Movies: movieIDs}, nil
 		}
 	}
+
 	return &redis.RecommendationResult{Status: "pending"}, nil
 }
 
