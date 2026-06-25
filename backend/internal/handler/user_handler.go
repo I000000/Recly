@@ -3,31 +3,28 @@ package handler
 import (
 	"net/http"
 
-	"github.com/I000000/recly/internal/service"
+	"github.com/I000000/recly/internal/service/interfaces"
 	"github.com/gin-gonic/gin"
 )
 
 type UserHandler struct {
-	userService *service.UserService
+	userService interfaces.UserService
 }
 
-func NewUserHandler(userService *service.UserService) *UserHandler {
+func NewUserHandler(userService interfaces.UserService) *UserHandler {
 	return &UserHandler{userService: userService}
 }
 
 func (h *UserHandler) Profile(c *gin.Context) {
-	userID := c.GetString("user_id")
-	if userID == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+	userID, ok := getUserID(c)
+	if !ok {
 		return
 	}
-
 	user, err := h.userService.GetUserByID(c.Request.Context(), userID)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+		respondWithError(c, http.StatusNotFound, "user not found")
 		return
 	}
-
 	c.JSON(http.StatusOK, gin.H{
 		"id":                   user.ID,
 		"email":                user.Email,
@@ -38,42 +35,38 @@ func (h *UserHandler) Profile(c *gin.Context) {
 }
 
 func (h *UserHandler) CompleteOnboarding(c *gin.Context) {
-	userID := c.GetString("user_id")
-	if userID == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+	userID, ok := getUserID(c)
+	if !ok {
 		return
 	}
-
 	if err := h.userService.CompleteOnboarding(c.Request.Context(), userID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondWithError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
-
 	c.JSON(http.StatusOK, gin.H{"status": "ok"})
 }
 
 func (h *UserHandler) UploadAvatar(c *gin.Context) {
-	userID := c.GetString("user_id")
-	if userID == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+	userID, ok := getUserID(c)
+	if !ok {
 		return
 	}
 	file, header, err := c.Request.FormFile("avatar")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "file is required"})
+		respondWithError(c, http.StatusBadRequest, "file is required")
 		return
 	}
 	defer file.Close()
 
-	const maxSize = 5 * 1024 * 1024 // 5 MB
+	const maxSize = 5 * 1024 * 1024
 	if header.Size > maxSize {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "file too large (max 5MB)"})
+		respondWithError(c, http.StatusBadRequest, "file too large (max 5MB)")
 		return
 	}
 
 	avatarURL, err := h.userService.UpdateAvatar(c.Request.Context(), userID, file, header)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondWithError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"avatar_url": avatarURL})

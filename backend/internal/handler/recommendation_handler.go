@@ -3,15 +3,15 @@ package handler
 import (
 	"net/http"
 
-	"github.com/I000000/recly/internal/service"
+	"github.com/I000000/recly/internal/service/interfaces"
 	"github.com/gin-gonic/gin"
 )
 
 type RecommendationHandler struct {
-	recService *service.RecommendationService
+	recService interfaces.RecommendationService
 }
 
-func NewRecommendationHandler(recService *service.RecommendationService) *RecommendationHandler {
+func NewRecommendationHandler(recService interfaces.RecommendationService) *RecommendationHandler {
 	return &RecommendationHandler{recService: recService}
 }
 
@@ -24,25 +24,31 @@ type RecommendRequest struct {
 }
 
 func (h *RecommendationHandler) Request(c *gin.Context) {
-	var req RecommendRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	userID, ok := getUserID(c)
+	if !ok {
 		return
 	}
-	userID := c.GetString("user_id")
+	var req RecommendRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		respondWithError(c, http.StatusBadRequest, err.Error())
+		return
+	}
 	taskID, err := h.recService.Request(c.Request.Context(), userID, req.SelectedIDs, req.ModalityWeights, req.ExcludeIDs, req.Direction, req.Contextual)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondWithError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 	c.JSON(http.StatusAccepted, gin.H{"task_id": taskID, "status": "pending"})
 }
 
 func (h *RecommendationHandler) GetHistory(c *gin.Context) {
-	userID := c.GetString("user_id")
+	userID, ok := getUserID(c)
+	if !ok {
+		return
+	}
 	history, err := h.recService.GetHistory(c.Request.Context(), userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondWithError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"history": history})
@@ -56,15 +62,18 @@ type SaveRecommendationRequest struct {
 }
 
 func (h *RecommendationHandler) Save(c *gin.Context) {
-	var req SaveRecommendationRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	userID, ok := getUserID(c)
+	if !ok {
 		return
 	}
-	userID := c.GetString("user_id")
+	var req SaveRecommendationRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		respondWithError(c, http.StatusBadRequest, err.Error())
+		return
+	}
 	rec, err := h.recService.SaveRecommendation(c.Request.Context(), userID, req.FromType, req.FromID, req.ToType, req.ToID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondWithError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 	c.JSON(http.StatusCreated, gin.H{"saved": rec})
@@ -73,17 +82,20 @@ func (h *RecommendationHandler) Save(c *gin.Context) {
 func (h *RecommendationHandler) DeleteSaved(c *gin.Context) {
 	recID := c.Param("id")
 	if err := h.recService.DeleteSavedRecommendation(c.Request.Context(), recID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondWithError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "deleted"})
 }
 
 func (h *RecommendationHandler) GetSaved(c *gin.Context) {
-	userID := c.GetString("user_id")
+	userID, ok := getUserID(c)
+	if !ok {
+		return
+	}
 	saved, err := h.recService.GetSavedRecommendations(c.Request.Context(), userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondWithError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"saved": saved})
@@ -93,7 +105,7 @@ func (h *RecommendationHandler) GetResult(c *gin.Context) {
 	taskID := c.Param("taskId")
 	result, err := h.recService.GetResult(c.Request.Context(), taskID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
+		respondWithError(c, http.StatusInternalServerError, "internal error")
 		return
 	}
 	if result == nil {

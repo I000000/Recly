@@ -3,14 +3,15 @@ package handler
 import (
 	"net/http"
 
+	"github.com/I000000/recly/internal/service/interfaces"
 	"github.com/gin-gonic/gin"
 )
 
 type AuthHandler struct {
-	authService AuthServiceInterface
+	authService interfaces.AuthService
 }
 
-func NewAuthHandler(authService AuthServiceInterface) *AuthHandler {
+func NewAuthHandler(authService interfaces.AuthService) *AuthHandler {
 	return &AuthHandler{authService: authService}
 }
 

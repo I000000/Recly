@@ -6,21 +6,21 @@ import (
 	"strings"
 
 	"github.com/I000000/recly/internal/domain"
-	"github.com/I000000/recly/internal/service"
+	"github.com/I000000/recly/internal/service/interfaces"
 	"github.com/gin-gonic/gin"
 )
 
 type SearchHandler struct {
-	searchService *service.SearchService
+	searchService interfaces.SearchService
 }
 
-func NewSearchHandler(svc *service.SearchService) *SearchHandler {
-	return &SearchHandler{searchService: svc}
+func NewSearchHandler(searchService interfaces.SearchService) *SearchHandler {
+	return &SearchHandler{searchService: searchService}
 }
 
 func (h *SearchHandler) Search(c *gin.Context) {
 	query := c.Query("q")
-	itemType := c.DefaultQuery("type", "all") // book, movie, all
+	itemType := c.DefaultQuery("type", "all")
 	genre := c.Query("genre")
 	sort := c.Query("sort")
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
@@ -33,7 +33,7 @@ func (h *SearchHandler) Search(c *gin.Context) {
 
 	results, err := h.searchService.SearchWithFilters(query, itemType, genre, sort, limit, offset)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondWithError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"results": results})
@@ -42,7 +42,7 @@ func (h *SearchHandler) Search(c *gin.Context) {
 func (h *SearchHandler) BatchGetItems(c *gin.Context) {
 	idsStr := c.Query("ids")
 	if idsStr == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "ids are required"})
+		respondWithError(c, http.StatusBadRequest, "ids are required")
 		return
 	}
 	itemType := c.DefaultQuery("type", "movie")
@@ -50,7 +50,7 @@ func (h *SearchHandler) BatchGetItems(c *gin.Context) {
 
 	items, err := h.searchService.GetItems(ids, itemType)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondWithError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"items": items})
@@ -60,7 +60,7 @@ func (h *SearchHandler) GetGenres(c *gin.Context) {
 	itemType := c.DefaultQuery("type", "all")
 	genres, err := h.searchService.GetGenres(itemType)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondWithError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"genres": genres})

@@ -1,4 +1,4 @@
-package handler
+package interfaces
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"github.com/I000000/recly/internal/domain"
 )
 
-type AuthServiceInterface interface {
+type AuthService interface {
 	Register(ctx context.Context, email, password, name string) (*domain.User, error)
 	Login(ctx context.Context, email, password string) (accessToken, refreshToken string, err error)
 }
