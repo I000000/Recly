@@ -1,14 +1,6 @@
 package domain
 
-import (
-	"errors"
-	"time"
-)
-
-var (
-	ErrNotFound       = errors.New("not found")
-	ErrDuplicateEmail = errors.New("email already exists")
-)
+import "time"
 
 type User struct {
 	ID                  string    `json:"id"`

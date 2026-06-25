@@ -3,7 +3,7 @@ package domain
 type ItemDetail struct {
 	ID     string   `json:"id"`
 	Title  string   `json:"title"`
-	Type   string   `json:"type"` // "book" или "movie"
+	Type   string   `json:"type"`
 	Image  string   `json:"image"`
 	Genres []string `json:"genres,omitempty"`
 
