@@ -1,3 +1,4 @@
+//go:generate mockery --name Client --output ../../mocks --outpkg mocks --case underscore
 package meili
 
 import (
@@ -12,21 +13,28 @@ import (
 	"github.com/I000000/recly/internal/domain"
 )
 
-type Client struct {
+type Client interface {
+	Search(query string) ([]domain.ItemDetail, error)
+	SearchWithFilters(query, itemType, genre, sort string, limit, offset int) ([]domain.ItemDetail, error)
+	GetItems(ids []string, itemType string) ([]domain.ItemDetail, error)
+	GetGenres(itemType string) ([]string, error)
+}
+
+type clientImpl struct {
 	baseURL string
 	apiKey  string
 	http    *http.Client
 }
 
-func NewClient(baseURL, apiKey string) *Client {
-	return &Client{
+func NewClient(baseURL, apiKey string) *clientImpl {
+	return &clientImpl{
 		baseURL: baseURL,
 		apiKey:  apiKey,
 		http:    &http.Client{},
 	}
 }
 
-func (c *Client) Search(query string) ([]domain.ItemDetail, error) {
+func (c *clientImpl) Search(query string) ([]domain.ItemDetail, error) {
 	url := fmt.Sprintf("%s/indexes/items/search", c.baseURL)
 	payload := map[string]interface{}{
 		"q":      query,
@@ -58,7 +66,7 @@ func (c *Client) Search(query string) ([]domain.ItemDetail, error) {
 	return items, nil
 }
 
-func (c *Client) SearchWithFilters(query, itemType, genre, sort string, limit, offset int) ([]domain.ItemDetail, error) {
+func (c *clientImpl) SearchWithFilters(query, itemType, genre, sort string, limit, offset int) ([]domain.ItemDetail, error) {
 	filters := []string{}
 	if itemType != "" && itemType != "all" {
 		filters = append(filters, fmt.Sprintf("type = \"%s\"", itemType))
@@ -116,7 +124,7 @@ func (c *Client) SearchWithFilters(query, itemType, genre, sort string, limit, o
 	return items, nil
 }
 
-func (c *Client) GetItems(ids []string, itemType string) ([]domain.ItemDetail, error) {
+func (c *clientImpl) GetItems(ids []string, itemType string) ([]domain.ItemDetail, error) {
 	if len(ids) == 0 {
 		return []domain.ItemDetail{}, nil
 	}
@@ -164,7 +172,7 @@ func (c *Client) GetItems(ids []string, itemType string) ([]domain.ItemDetail, e
 	return items, nil
 }
 
-func (c *Client) GetGenres(itemType string) ([]string, error) {
+func (c *clientImpl) GetGenres(itemType string) ([]string, error) {
 	filter := ""
 	if itemType != "" && itemType != "all" {
 		filter = fmt.Sprintf("type = \"%s\"", itemType)

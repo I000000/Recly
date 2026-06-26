@@ -62,6 +62,72 @@ func (_m *UserRepository) GetByEmail(ctx context.Context, email string) (*domain
 	return r0, r1
 }
 
+// GetByID provides a mock function with given fields: ctx, id
+func (_m *UserRepository) GetByID(ctx context.Context, id string) (*domain.User, error) {
+	ret := _m.Called(ctx, id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetByID")
+	}
+
+	var r0 *domain.User
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) (*domain.User, error)); ok {
+		return rf(ctx, id)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) *domain.User); ok {
+		r0 = rf(ctx, id)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*domain.User)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, id)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// UpdateAvatar provides a mock function with given fields: ctx, userID, avatarURL
+func (_m *UserRepository) UpdateAvatar(ctx context.Context, userID string, avatarURL string) error {
+	ret := _m.Called(ctx, userID, avatarURL)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateAvatar")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
+		r0 = rf(ctx, userID, avatarURL)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// UpdateOnboardingCompleted provides a mock function with given fields: ctx, userID, completed
+func (_m *UserRepository) UpdateOnboardingCompleted(ctx context.Context, userID string, completed bool) error {
+	ret := _m.Called(ctx, userID, completed)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateOnboardingCompleted")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, bool) error); ok {
+		r0 = rf(ctx, userID, completed)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // NewUserRepository creates a new instance of UserRepository. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func NewUserRepository(t interface {

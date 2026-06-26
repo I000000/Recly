@@ -6,10 +6,10 @@ import (
 )
 
 type SearchService struct {
-	meiliClient *meili.Client
+	meiliClient meili.Client
 }
 
-func NewSearchService(meiliClient *meili.Client) *SearchService {
+func NewSearchService(meiliClient meili.Client) *SearchService {
 	return &SearchService{meiliClient: meiliClient}
 }
 

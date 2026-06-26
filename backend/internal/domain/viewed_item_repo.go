@@ -1,3 +1,4 @@
+//go:generate mockery --name ViewedItemRepository --output ../../mocks --outpkg mocks --case underscore
 package domain
 
 import "context"

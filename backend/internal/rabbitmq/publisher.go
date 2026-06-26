@@ -1,3 +1,4 @@
+//go:generate mockery --name Publisher --output ../../mocks --outpkg mocks --case underscore
 package rabbitmq
 
 import (

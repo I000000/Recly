@@ -1,3 +1,4 @@
+//go:generate mockery --name Cache --output ../../mocks --outpkg mocks --case underscore
 package redis
 
 import (

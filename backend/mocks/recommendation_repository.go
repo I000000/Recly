@@ -62,6 +62,36 @@ func (_m *RecommendationRepository) GetHistory(ctx context.Context, userID strin
 	return r0, r1
 }
 
+// GetHistoryByTaskID provides a mock function with given fields: ctx, taskID
+func (_m *RecommendationRepository) GetHistoryByTaskID(ctx context.Context, taskID string) (*domain.RecommendationHistory, error) {
+	ret := _m.Called(ctx, taskID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetHistoryByTaskID")
+	}
+
+	var r0 *domain.RecommendationHistory
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) (*domain.RecommendationHistory, error)); ok {
+		return rf(ctx, taskID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) *domain.RecommendationHistory); ok {
+		r0 = rf(ctx, taskID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*domain.RecommendationHistory)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, taskID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetSavedRecommendations provides a mock function with given fields: ctx, userID
 func (_m *RecommendationRepository) GetSavedRecommendations(ctx context.Context, userID string) ([]domain.SavedRecommendation, error) {
 	ret := _m.Called(ctx, userID)
@@ -121,6 +151,24 @@ func (_m *RecommendationRepository) SaveRecommendation(ctx context.Context, rec 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, *domain.SavedRecommendation) error); ok {
 		r0 = rf(ctx, rec)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// UpdateResult provides a mock function with given fields: ctx, taskID, resultJSON
+func (_m *RecommendationRepository) UpdateResult(ctx context.Context, taskID string, resultJSON string) error {
+	ret := _m.Called(ctx, taskID, resultJSON)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateResult")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
+		r0 = rf(ctx, taskID, resultJSON)
 	} else {
 		r0 = ret.Error(0)
 	}

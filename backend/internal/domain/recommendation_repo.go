@@ -1,3 +1,4 @@
+//go:generate mockery --name RecommendationRepository --output ../../mocks --outpkg mocks --case underscore
 package domain
 
 import "context"
