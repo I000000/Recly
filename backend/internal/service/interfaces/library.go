@@ -1,3 +1,4 @@
+//go:generate mockery --name LibraryService --output ../../../mocks --outpkg mocks --case underscore
 package interfaces
 
 import (

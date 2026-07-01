@@ -1,3 +1,4 @@
+//go:generate mockery --name UserService --output ../../../mocks --outpkg mocks --case underscore
 package interfaces
 
 import (

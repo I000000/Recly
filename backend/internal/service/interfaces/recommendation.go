@@ -1,3 +1,4 @@
+//go:generate mockery --name RecommendationService --output ../../../mocks --outpkg mocks --case underscore
 package interfaces
 
 import (

@@ -20,7 +20,6 @@ import (
 )
 
 func setupTestDB(t *testing.T) (*pgxpool.Pool, func()) {
-	// Проверяем доступность Docker
 	if _, err := testcontainers.NewDockerClient(); err != nil {
 		t.Skip("Docker not available, skipping integration test")
 	}
@@ -41,7 +40,6 @@ func setupTestDB(t *testing.T) (*pgxpool.Pool, func()) {
 		t.Fatalf("failed to start postgres container: %v", err)
 	}
 
-	// Даем время на полную инициализацию
 	time.Sleep(2 * time.Second)
 
 	port, err := container.MappedPort(ctx, "5432/tcp")
@@ -49,7 +47,6 @@ func setupTestDB(t *testing.T) (*pgxpool.Pool, func()) {
 		t.Fatalf("failed to get mapped port: %v", err)
 	}
 
-	// Используем localhost
 	connStr := fmt.Sprintf("postgres://testuser:testpass@localhost:%s/testdb?sslmode=disable", port.Port())
 
 	pool, err := pgxpool.New(ctx, connStr)
@@ -61,7 +58,6 @@ func setupTestDB(t *testing.T) (*pgxpool.Pool, func()) {
 		t.Fatalf("failed to ping database: %v", err)
 	}
 
-	// Применяем миграции
 	if err := applyMigrations(ctx, pool); err != nil {
 		t.Fatalf("failed to apply migrations: %v", err)
 	}
@@ -77,18 +73,14 @@ func setupTestDB(t *testing.T) (*pgxpool.Pool, func()) {
 }
 
 func applyMigrations(ctx context.Context, pool *pgxpool.Pool) error {
-	// Получаем текущий путь к файлу тестов
 	_, currentFile, _, ok := runtime.Caller(0)
 	if !ok {
 		return fmt.Errorf("failed to get current file path")
 	}
-	// Поднимаемся наверх до корня проекта: internal/repository/postgres -> ../../
 	projectRoot := filepath.Dir(filepath.Dir(filepath.Dir(filepath.Dir(currentFile))))
 	migDir := filepath.Join(projectRoot, "internal", "repository", "postgres", "migrations")
 
-	// Проверяем, существует ли директория
 	if _, err := os.Stat(migDir); os.IsNotExist(err) {
-		// Если не существует, попробуем альтернативные пути
 		possiblePaths := []string{
 			"internal/repository/postgres/migrations",
 			"./internal/repository/postgres/migrations",
