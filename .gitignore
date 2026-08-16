@@ -1,0 +1,53 @@
+# --- Файлы с секретами ---
+.env
+*.env.local
+*.env.production
+!.env.example 
+
+# --- Артефакты сборки Go ---
+/bin/
+/build/
+/out/
+*.exe
+*.test
+*.out
+
+# --- Зависимости Go ---
+/vendor/
+
+# --- Swagger / OpenAPI ---
+docs/
+*.swagger.json
+*.swagger.yaml
+
+# --- IDE (VSCode, GoLand) ---
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# --- Операционные системы ---
+.DS_Store
+Thumbs.db
+
+# --- Данные и логи ---
+*.npy
+*.parquet
+/logs/
+data/*
+!data/.gitkeep
+tmp/
+uploads/
+
+# --- Python ---
+__pycache__/
+*.pyc
+*.pyo
+.env
+venv/
+.venv/
+dist/
+
+# --- Docker ---
+docker-compose.override.yml
