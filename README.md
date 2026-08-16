@@ -22,7 +22,7 @@ Recly — это кросс-медийная рекомендательная с
 - `redis` — кэш статусов задач.
 - `rabbitmq` — очередь сообщений для асинхронной обработки.
 
-![Архитектура](docs/architecture.png)
+![Архитектура](assets/architecture.png)
 
 ## Установка и запуск
 ### Требования
@@ -42,6 +42,7 @@ cp .env.example .env
 3. Скачайте предварительно вычисленные данные
 
 Система использует заранее подготовленные мультимодальные эмбеддинги и Parquet-файлы с каталогом книг и фильмов. Доступны наборы данных на [10 тыс.](https://huggingface.co/datasets/asdsadsdaa/recly_10k), [20 тыс.](https://huggingface.co/datasets/asdsadsdaa/recly_20k),  [50 тыс.](https://huggingface.co/datasets/asdsadsdaa/recly_50k) или [100 тыс.](https://huggingface.co/datasets/asdsadsdaa/recly_100k) записей.
+
 Скачайте архив любого из датасетов и распакуйте его в папку `data/` в корне проекта:
 ```bash
 # Пример для 10k
@@ -49,6 +50,7 @@ wget -O data.tar.gz https://huggingface.co/datasets/asdsadsdaa/recly_10k/resolve
 tar -xzf data.tar.gz -C data/
 ```
 Если у вас нет `wget`, просто скачайте архив вручную и распакуйте в папку `data/`.
+
 Убедитесь, что в файле `.env` указаны правильные пути к этим файлам (по умолчанию они уже настроены для 10k, измените при необходимости).
 
 4. Запустите все сервисы (первый запуск требует индексацию)
