@@ -5,9 +5,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 
+	"github.com/I000000/recly/pkg/logger"
 	amqp "github.com/rabbitmq/amqp091-go"
+	"go.uber.org/zap"
 )
 
 type TaskMessage struct {
@@ -55,16 +56,17 @@ func NewAMQPPublisher(url string) (*AMQPPublisher, error) {
 		conn.Close()
 		return nil, fmt.Errorf("queue declare: %w", err)
 	}
-	log.Println("RabbitMQ publisher connected, queue:", q.Name)
 	return &AMQPPublisher{conn: conn, channel: ch, queue: q}, nil
 }
 
 func (p *AMQPPublisher) PublishRecommendationTask(ctx context.Context, msg TaskMessage) error {
+	log := logger.FromContext(ctx)
 	body, err := json.Marshal(msg)
 	if err != nil {
+		log.Error("failed to marshal task message", zap.Error(err), zap.String("task_id", msg.TaskID))
 		return fmt.Errorf("marshal: %w", err)
 	}
-	return p.channel.PublishWithContext(ctx,
+	err = p.channel.PublishWithContext(ctx,
 		"",           // exchange
 		p.queue.Name, // routing key
 		false,        // mandatory
@@ -75,6 +77,12 @@ func (p *AMQPPublisher) PublishRecommendationTask(ctx context.Context, msg TaskM
 			Body:         body,
 		},
 	)
+	if err != nil {
+		log.Error("failed to publish task to RabbitMQ", zap.Error(err), zap.String("task_id", msg.TaskID))
+		return err
+	}
+	log.Debug("task published to RabbitMQ", zap.String("task_id", msg.TaskID))
+	return nil
 }
 
 func (p *AMQPPublisher) Close() error {

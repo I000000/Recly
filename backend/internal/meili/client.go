@@ -3,6 +3,7 @@ package meili
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -11,13 +12,15 @@ import (
 	"strings"
 
 	"github.com/I000000/recly/internal/domain"
+	"github.com/I000000/recly/pkg/logger"
+	"go.uber.org/zap"
 )
 
 type Client interface {
-	Search(query string) ([]domain.ItemDetail, error)
-	SearchWithFilters(query, itemType, genre, sort string, limit, offset int) ([]domain.ItemDetail, error)
-	GetItems(ids []string, itemType string) ([]domain.ItemDetail, error)
-	GetGenres(itemType string) ([]string, error)
+	Search(ctx context.Context, query string) ([]domain.ItemDetail, error)
+	SearchWithFilters(ctx context.Context, query, itemType, genre, sort string, limit, offset int) ([]domain.ItemDetail, error)
+	GetItems(ctx context.Context, ids []string, itemType string) ([]domain.ItemDetail, error)
+	GetGenres(ctx context.Context, itemType string) ([]string, error)
 }
 
 type clientImpl struct {
@@ -34,7 +37,8 @@ func NewClient(baseURL, apiKey string) *clientImpl {
 	}
 }
 
-func (c *clientImpl) Search(query string) ([]domain.ItemDetail, error) {
+func (c *clientImpl) Search(ctx context.Context, query string) ([]domain.ItemDetail, error) {
+	log := logger.FromContext(ctx)
 	url := fmt.Sprintf("%s/indexes/items/search", c.baseURL)
 	payload := map[string]interface{}{
 		"q":      query,
@@ -43,21 +47,34 @@ func (c *clientImpl) Search(query string) ([]domain.ItemDetail, error) {
 	}
 	bodyBytes, _ := json.Marshal(payload)
 
-	req, _ := http.NewRequest("POST", url, bytes.NewBuffer(bodyBytes))
+	req, _ := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(bodyBytes))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+c.apiKey)
 
 	resp, err := c.http.Do(req)
 	if err != nil {
+		log.Error("meilisearch search request failed", zap.Error(err), zap.String("query", query))
 		return nil, err
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		log.Error("meilisearch returned non-OK status",
+			zap.Int("status", resp.StatusCode),
+			zap.String("body", string(body)),
+		)
+		return nil, fmt.Errorf("meilisearch returned %d", resp.StatusCode)
+	}
 
 	respBytes, _ := io.ReadAll(resp.Body)
 	var result struct {
 		Hits []rawHit `json:"hits"`
 	}
-	json.Unmarshal(respBytes, &result)
+	if err := json.Unmarshal(respBytes, &result); err != nil {
+		log.Error("failed to parse meilisearch response", zap.Error(err))
+		return nil, err
+	}
 
 	items := make([]domain.ItemDetail, len(result.Hits))
 	for i, hit := range result.Hits {
@@ -66,7 +83,8 @@ func (c *clientImpl) Search(query string) ([]domain.ItemDetail, error) {
 	return items, nil
 }
 
-func (c *clientImpl) SearchWithFilters(query, itemType, genre, sort string, limit, offset int) ([]domain.ItemDetail, error) {
+func (c *clientImpl) SearchWithFilters(ctx context.Context, query, itemType, genre, sort string, limit, offset int) ([]domain.ItemDetail, error) {
+	log := logger.FromContext(ctx)
 	filters := []string{}
 	if itemType != "" && itemType != "all" {
 		filters = append(filters, fmt.Sprintf("type = \"%s\"", itemType))
@@ -99,21 +117,32 @@ func (c *clientImpl) SearchWithFilters(query, itemType, genre, sort string, limi
 
 	bodyBytes, _ := json.Marshal(payload)
 	url := fmt.Sprintf("%s/indexes/items/search", c.baseURL)
-	req, _ := http.NewRequest("POST", url, bytes.NewBuffer(bodyBytes))
+	req, _ := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(bodyBytes))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+c.apiKey)
 
 	resp, err := c.http.Do(req)
 	if err != nil {
+		log.Error("meilisearch search with filters failed", zap.Error(err), zap.String("query", query))
 		return nil, err
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		log.Error("meilisearch returned non-OK status",
+			zap.Int("status", resp.StatusCode),
+			zap.String("body", string(body)),
+		)
+		return nil, fmt.Errorf("meilisearch returned %d", resp.StatusCode)
+	}
 
 	respBytes, _ := io.ReadAll(resp.Body)
 	var result struct {
 		Hits []rawHit `json:"hits"`
 	}
 	if err := json.Unmarshal(respBytes, &result); err != nil {
+		log.Error("failed to parse meilisearch response", zap.Error(err))
 		return nil, err
 	}
 
@@ -124,7 +153,8 @@ func (c *clientImpl) SearchWithFilters(query, itemType, genre, sort string, limi
 	return items, nil
 }
 
-func (c *clientImpl) GetItems(ids []string, itemType string) ([]domain.ItemDetail, error) {
+func (c *clientImpl) GetItems(ctx context.Context, ids []string, itemType string) ([]domain.ItemDetail, error) {
+	log := logger.FromContext(ctx)
 	if len(ids) == 0 {
 		return []domain.ItemDetail{}, nil
 	}
@@ -149,21 +179,34 @@ func (c *clientImpl) GetItems(ids []string, itemType string) ([]domain.ItemDetai
 	}
 	bodyBytes, _ := json.Marshal(payload)
 
-	req, _ := http.NewRequest("POST", url, bytes.NewBuffer(bodyBytes))
+	req, _ := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(bodyBytes))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+c.apiKey)
 
 	resp, err := c.http.Do(req)
 	if err != nil {
+		log.Error("meilisearch get items failed", zap.Error(err), zap.Strings("ids", ids))
 		return nil, err
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		log.Error("meilisearch returned non-OK status",
+			zap.Int("status", resp.StatusCode),
+			zap.String("body", string(body)),
+		)
+		return nil, fmt.Errorf("meilisearch returned %d", resp.StatusCode)
+	}
 
 	respBytes, _ := io.ReadAll(resp.Body)
 	var result struct {
 		Hits []rawHit `json:"hits"`
 	}
-	json.Unmarshal(respBytes, &result)
+	if err := json.Unmarshal(respBytes, &result); err != nil {
+		log.Error("failed to parse meilisearch response", zap.Error(err))
+		return nil, err
+	}
 
 	items := make([]domain.ItemDetail, len(result.Hits))
 	for i, hit := range result.Hits {
@@ -172,7 +215,8 @@ func (c *clientImpl) GetItems(ids []string, itemType string) ([]domain.ItemDetai
 	return items, nil
 }
 
-func (c *clientImpl) GetGenres(itemType string) ([]string, error) {
+func (c *clientImpl) GetGenres(ctx context.Context, itemType string) ([]string, error) {
+	log := logger.FromContext(ctx)
 	filter := ""
 	if itemType != "" && itemType != "all" {
 		filter = fmt.Sprintf("type = \"%s\"", itemType)
@@ -185,19 +229,24 @@ func (c *clientImpl) GetGenres(itemType string) ([]string, error) {
 	}
 	bodyBytes, _ := json.Marshal(payload)
 	url := fmt.Sprintf("%s/indexes/items/search", c.baseURL)
-	req, _ := http.NewRequest("POST", url, bytes.NewBuffer(bodyBytes))
+	req, _ := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(bodyBytes))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+c.apiKey)
 
 	resp, err := c.http.Do(req)
 	if err != nil {
+		log.Error("meilisearch get genres failed", zap.Error(err))
 		return nil, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("meilisearch returned %d: %s", resp.StatusCode, string(body))
+		log.Error("meilisearch returned non-OK status",
+			zap.Int("status", resp.StatusCode),
+			zap.String("body", string(body)),
+		)
+		return nil, fmt.Errorf("meilisearch returned %d", resp.StatusCode)
 	}
 
 	var result struct {
@@ -206,6 +255,7 @@ func (c *clientImpl) GetGenres(itemType string) ([]string, error) {
 		} `json:"facetDistribution"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		log.Error("failed to parse meilisearch response", zap.Error(err))
 		return nil, err
 	}
 
@@ -214,5 +264,6 @@ func (c *clientImpl) GetGenres(itemType string) ([]string, error) {
 		genres = append(genres, g)
 	}
 	sort.Strings(genres)
+	log.Debug("genres fetched", zap.Int("count", len(genres)))
 	return genres, nil
 }

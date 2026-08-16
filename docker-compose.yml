@@ -51,6 +51,7 @@ services:
       REFRESH_TOKEN_TTL: 43200
     volumes:
       - ./uploads:/app/uploads
+      - ./logs:/app/logs
     depends_on:
       postgres:
         condition: service_healthy
