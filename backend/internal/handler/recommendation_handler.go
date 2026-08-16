@@ -23,6 +23,17 @@ type RecommendRequest struct {
 	Contextual      bool               `json:"contextual"`
 }
 
+// Request creates a recommendation task
+// @Summary Request recommendations
+// @Tags recommendations
+// @Accept json
+// @Produce json
+// @Param request body RecommendRequest true "Recommendation request"
+// @Success 202 {object} map[string]interface{} "task_id, status"
+// @Failure 400 {object} map[string]interface{} "error"
+// @Failure 401 {object} map[string]interface{} "unauthorized"
+// @Failure 500 {object} map[string]interface{} "error"
+// @Router /recommend [post]
 func (h *RecommendationHandler) Request(c *gin.Context) {
 	userID, ok := getUserID(c)
 	if !ok {
@@ -41,6 +52,37 @@ func (h *RecommendationHandler) Request(c *gin.Context) {
 	c.JSON(http.StatusAccepted, gin.H{"task_id": taskID, "status": "pending"})
 }
 
+// GetResult returns recommendation result by task ID
+// @Summary Get recommendation result
+// @Tags recommendations
+// @Produce json
+// @Param taskId path string true "Task ID"
+// @Success 200 {object} redis.RecommendationResult
+// @Failure 401 {object} map[string]interface{} "unauthorized"
+// @Failure 500 {object} map[string]interface{} "error"
+// @Router /result/{taskId} [get]
+func (h *RecommendationHandler) GetResult(c *gin.Context) {
+	taskID := c.Param("taskId")
+	result, err := h.recService.GetResult(c.Request.Context(), taskID)
+	if err != nil {
+		respondWithError(c, http.StatusInternalServerError, "internal error")
+		return
+	}
+	if result == nil {
+		c.JSON(http.StatusOK, gin.H{"status": "pending"})
+		return
+	}
+	c.JSON(http.StatusOK, result)
+}
+
+// GetHistory returns user's recommendation history
+// @Summary Get recommendation history
+// @Tags recommendations
+// @Produce json
+// @Success 200 {object} map[string]interface{} "history"
+// @Failure 401 {object} map[string]interface{} "unauthorized"
+// @Failure 500 {object} map[string]interface{} "error"
+// @Router /user/recommendations/history [get]
 func (h *RecommendationHandler) GetHistory(c *gin.Context) {
 	userID, ok := getUserID(c)
 	if !ok {
@@ -61,6 +103,17 @@ type SaveRecommendationRequest struct {
 	ToID     string `json:"to_id" binding:"required"`
 }
 
+// Save saves a recommendation to user's saved list
+// @Summary Save recommendation
+// @Tags recommendations
+// @Accept json
+// @Produce json
+// @Param request body SaveRecommendationRequest true "Save data"
+// @Success 201 {object} map[string]interface{} "saved"
+// @Failure 400 {object} map[string]interface{} "error"
+// @Failure 401 {object} map[string]interface{} "unauthorized"
+// @Failure 500 {object} map[string]interface{} "error"
+// @Router /user/saved-items [post]
 func (h *RecommendationHandler) Save(c *gin.Context) {
 	userID, ok := getUserID(c)
 	if !ok {
@@ -79,6 +132,15 @@ func (h *RecommendationHandler) Save(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"saved": rec})
 }
 
+// DeleteSaved deletes a saved recommendation
+// @Summary Delete saved recommendation
+// @Tags recommendations
+// @Produce json
+// @Param id path string true "Saved item ID"
+// @Success 200 {object} map[string]interface{} "message"
+// @Failure 401 {object} map[string]interface{} "unauthorized"
+// @Failure 500 {object} map[string]interface{} "error"
+// @Router /user/saved-items/{id} [delete]
 func (h *RecommendationHandler) DeleteSaved(c *gin.Context) {
 	recID := c.Param("id")
 	if err := h.recService.DeleteSavedRecommendation(c.Request.Context(), recID); err != nil {
@@ -88,6 +150,14 @@ func (h *RecommendationHandler) DeleteSaved(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "deleted"})
 }
 
+// GetSaved returns user's saved recommendations
+// @Summary Get saved recommendations
+// @Tags recommendations
+// @Produce json
+// @Success 200 {object} map[string]interface{} "saved"
+// @Failure 401 {object} map[string]interface{} "unauthorized"
+// @Failure 500 {object} map[string]interface{} "error"
+// @Router /user/saved-items [get]
 func (h *RecommendationHandler) GetSaved(c *gin.Context) {
 	userID, ok := getUserID(c)
 	if !ok {
@@ -99,18 +169,4 @@ func (h *RecommendationHandler) GetSaved(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"saved": saved})
-}
-
-func (h *RecommendationHandler) GetResult(c *gin.Context) {
-	taskID := c.Param("taskId")
-	result, err := h.recService.GetResult(c.Request.Context(), taskID)
-	if err != nil {
-		respondWithError(c, http.StatusInternalServerError, "internal error")
-		return
-	}
-	if result == nil {
-		c.JSON(http.StatusOK, gin.H{"status": "pending"})
-		return
-	}
-	c.JSON(http.StatusOK, result)
 }

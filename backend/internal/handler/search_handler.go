@@ -18,6 +18,19 @@ func NewSearchHandler(searchService interfaces.SearchService) *SearchHandler {
 	return &SearchHandler{searchService: searchService}
 }
 
+// Search performs full-text search
+// @Summary Search items
+// @Tags search
+// @Produce json
+// @Param q query string false "Search query"
+// @Param type query string false "Item type (book/movie/all)" default(all)
+// @Param genre query string false "Genre filter"
+// @Param sort query string false "Sort field: ratings_count:desc, vote_count:desc"
+// @Param limit query int false "Limit" default(20)
+// @Param offset query int false "Offset" default(0)
+// @Success 200 {object} map[string]interface{} "results"
+// @Failure 500 {object} map[string]interface{} "error"
+// @Router /search [get]
 func (h *SearchHandler) Search(c *gin.Context) {
 	query := c.Query("q")
 	itemType := c.DefaultQuery("type", "all")
@@ -39,6 +52,16 @@ func (h *SearchHandler) Search(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"results": results})
 }
 
+// BatchGetItems returns metadata for multiple items
+// @Summary Get multiple items by IDs
+// @Tags search
+// @Produce json
+// @Param ids query string true "Comma-separated IDs"
+// @Param type query string false "Item type (book/movie/all)" default(all)
+// @Success 200 {object} map[string]interface{} "items"
+// @Failure 400 {object} map[string]interface{} "error"
+// @Failure 500 {object} map[string]interface{} "error"
+// @Router /items/batch [get]
 func (h *SearchHandler) BatchGetItems(c *gin.Context) {
 	idsStr := c.Query("ids")
 	if idsStr == "" {
@@ -56,6 +79,14 @@ func (h *SearchHandler) BatchGetItems(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"items": items})
 }
 
+// GetGenres returns list of genres
+// @Summary Get genres
+// @Tags search
+// @Produce json
+// @Param type query string false "Item type (book/movie/all)" default(all)
+// @Success 200 {object} map[string]interface{} "genres"
+// @Failure 500 {object} map[string]interface{} "error"
+// @Router /genres [get]
 func (h *SearchHandler) GetGenres(c *gin.Context) {
 	itemType := c.DefaultQuery("type", "all")
 	genres, err := h.searchService.GetGenres(itemType)

@@ -15,6 +15,14 @@ func NewUserHandler(userService interfaces.UserService) *UserHandler {
 	return &UserHandler{userService: userService}
 }
 
+// Profile returns current user profile
+// @Summary Get user profile
+// @Tags user
+// @Produce json
+// @Success 200 {object} domain.User "user profile"
+// @Failure 401 {object} map[string]interface{} "unauthorized"
+// @Failure 404 {object} map[string]interface{} "user not found"
+// @Router /user/profile [get]
 func (h *UserHandler) Profile(c *gin.Context) {
 	userID, ok := getUserID(c)
 	if !ok {
@@ -34,6 +42,14 @@ func (h *UserHandler) Profile(c *gin.Context) {
 	})
 }
 
+// CompleteOnboarding marks user onboarding as completed
+// @Summary Complete onboarding
+// @Tags user
+// @Produce json
+// @Success 200 {object} map[string]interface{} "status"
+// @Failure 401 {object} map[string]interface{} "unauthorized"
+// @Failure 500 {object} map[string]interface{} "error"
+// @Router /user/onboarding/complete [post]
 func (h *UserHandler) CompleteOnboarding(c *gin.Context) {
 	userID, ok := getUserID(c)
 	if !ok {
@@ -46,6 +62,17 @@ func (h *UserHandler) CompleteOnboarding(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "ok"})
 }
 
+// UploadAvatar uploads user avatar image
+// @Summary Upload avatar
+// @Tags user
+// @Accept mpfd
+// @Produce json
+// @Param avatar formData file true "Avatar image (jpg, png, webp)"
+// @Success 200 {object} map[string]interface{} "avatar_url"
+// @Failure 400 {object} map[string]interface{} "error"
+// @Failure 401 {object} map[string]interface{} "unauthorized"
+// @Failure 500 {object} map[string]interface{} "error"
+// @Router /user/avatar [post]
 func (h *UserHandler) UploadAvatar(c *gin.Context) {
 	userID, ok := getUserID(c)
 	if !ok {

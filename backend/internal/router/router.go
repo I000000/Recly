@@ -1,9 +1,12 @@
 package router
 
 import (
+	_ "github.com/I000000/recly/docs"
 	"github.com/I000000/recly/internal/handler"
 	"github.com/I000000/recly/internal/middleware"
 	"github.com/gin-gonic/gin"
+	swaggerfiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 func Setup(
@@ -19,6 +22,11 @@ func Setup(
 	r := gin.New()
 	r.Use(middleware.LoggerWithoutSpam())
 	r.Use(corsMiddleware())
+
+	// Swagger UI — только в режиме разработки
+	if gin.Mode() == gin.DebugMode {
+		r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerfiles.Handler))
+	}
 
 	api := r.Group("/api")
 	{

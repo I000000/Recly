@@ -15,6 +15,17 @@ func NewSavedItemHandler(savedItemService interfaces.SavedItemService) *SavedIte
 	return &SavedItemHandler{savedItemService: savedItemService}
 }
 
+// Save saves an item to saved list
+// @Summary Save item
+// @Tags saved
+// @Accept json
+// @Produce json
+// @Param request body object true "Item data (item_type, item_id)"
+// @Success 201 {object} map[string]interface{} "saved"
+// @Failure 400 {object} map[string]interface{} "error"
+// @Failure 401 {object} map[string]interface{} "unauthorized"
+// @Failure 500 {object} map[string]interface{} "error"
+// @Router /user/saved-items [post]
 func (h *SavedItemHandler) Save(c *gin.Context) {
 	userID, ok := getUserID(c)
 	if !ok {
@@ -36,6 +47,15 @@ func (h *SavedItemHandler) Save(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"saved": item})
 }
 
+// Delete deletes a saved item
+// @Summary Delete saved item
+// @Tags saved
+// @Produce json
+// @Param id path string true "Saved item ID"
+// @Success 200 {object} map[string]interface{} "message"
+// @Failure 401 {object} map[string]interface{} "unauthorized"
+// @Failure 500 {object} map[string]interface{} "error"
+// @Router /user/saved-items/{id} [delete]
 func (h *SavedItemHandler) Delete(c *gin.Context) {
 	id := c.Param("id")
 	if err := h.savedItemService.DeleteSavedItem(c.Request.Context(), id); err != nil {
@@ -45,6 +65,14 @@ func (h *SavedItemHandler) Delete(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "deleted"})
 }
 
+// Get returns user's saved items
+// @Summary Get saved items
+// @Tags saved
+// @Produce json
+// @Success 200 {object} map[string]interface{} "saved"
+// @Failure 401 {object} map[string]interface{} "unauthorized"
+// @Failure 500 {object} map[string]interface{} "error"
+// @Router /user/saved-items [get]
 func (h *SavedItemHandler) Get(c *gin.Context) {
 	userID, ok := getUserID(c)
 	if !ok {

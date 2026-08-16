@@ -22,6 +22,20 @@ import (
 	"github.com/I000000/recly/internal/service"
 )
 
+// @title Recly API
+// @version 1.0
+// @description Cross-media recommendation system API
+
+// @license.name MIT
+// @license.url https://opensource.org/licenses/MIT
+
+// @host localhost:8080
+// @BasePath /api
+// @schemes http
+
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
 func main() {
 	if err := godotenv.Load(".env"); err != nil {
 		log.Println("Warning: .env not found")

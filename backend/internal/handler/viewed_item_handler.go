@@ -20,6 +20,17 @@ type recordViewRequest struct {
 	ItemType string `json:"item_type" binding:"required,oneof=book movie"`
 }
 
+// RecordView records a user's view of an item
+// @Summary Record view
+// @Tags views
+// @Accept json
+// @Produce json
+// @Param request body recordViewRequest true "View data"
+// @Success 200 {object} map[string]interface{} "status"
+// @Failure 400 {object} map[string]interface{} "error"
+// @Failure 401 {object} map[string]interface{} "unauthorized"
+// @Failure 500 {object} map[string]interface{} "error"
+// @Router /user/view [post]
 func (h *ViewedItemHandler) RecordView(c *gin.Context) {
 	userID, ok := getUserID(c)
 	if !ok {
@@ -37,6 +48,14 @@ func (h *ViewedItemHandler) RecordView(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "ok"})
 }
 
+// GetRecentViews returns user's recent views
+// @Summary Get recent views
+// @Tags views
+// @Produce json
+// @Success 200 {object} map[string]interface{} "views"
+// @Failure 401 {object} map[string]interface{} "unauthorized"
+// @Failure 500 {object} map[string]interface{} "error"
+// @Router /user/views [get]
 func (h *ViewedItemHandler) GetRecentViews(c *gin.Context) {
 	userID, ok := getUserID(c)
 	if !ok {
