@@ -9,6 +9,8 @@ import BookCard from '@/components/book-card';
 import { useBookmark } from '@/hooks/useBookmark';
 import { useLike } from '@/hooks/useLike';
 
+export const dynamic = 'force-dynamic';
+
 export default function BookPage() {
   const params = useParams();
   const bookId = params.id as string;

@@ -9,6 +9,8 @@ import BookCard from '@/components/book-card';
 import { useBookmark } from '@/hooks/useBookmark';
 import { useLike } from '@/hooks/useLike';
 
+export const dynamic = 'force-dynamic';
+
 export default function MoviePage() {
   const params = useParams();
   const movieId = params.id as string;

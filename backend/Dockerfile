@@ -10,13 +10,13 @@ COPY . .
 
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o /recly-api ./cmd/api
 
-# Стадия 2: минимальный образ
 FROM alpine:3.20
 
 RUN apk add --no-cache ca-certificates tzdata
 WORKDIR /app
 RUN mkdir -p /app/uploads
 COPY --from=builder /recly-api /usr/local/bin/recly-api
+COPY --from=builder /app/internal/repository/postgres/migrations /app/internal/repository/postgres/migrations
 
 EXPOSE 8080
 ENTRYPOINT ["recly-api"]

@@ -6,6 +6,8 @@ import { ArrowLeft, Loader2 } from 'lucide-react';
 import api from '@/lib/api';
 import BookCard from '@/components/book-card';
 
+export const dynamic = 'force-dynamic';
+
 export default function BookGenrePage() {
   const { genreName } = useParams() as { genreName: string };
   const router = useRouter();

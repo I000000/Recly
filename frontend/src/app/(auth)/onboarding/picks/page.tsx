@@ -54,3 +54,5 @@ export default function PicksPage() {
     </div>
   );
 }
+
+export const dynamic = 'force-dynamic';

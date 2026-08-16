@@ -7,6 +7,8 @@ import api from '@/lib/api';
 import MovieCard from '@/components/movie-card';
 import BookCard from '@/components/book-card';
 
+export const dynamic = 'force-dynamic';
+
 export default function SavedPage() {
   const router = useRouter();
   const queryClient = useQueryClient();

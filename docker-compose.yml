@@ -16,8 +16,6 @@ services:
 
   redis:
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -25,9 +23,6 @@ services:
 
   rabbitmq:
     image: rabbitmq:3-management-alpine
-    ports:
-      - "5672:5672"
-      - "15672:15672"
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
@@ -81,8 +76,6 @@ services:
 
   meilisearch:
     image: getmeili/meilisearch:v1.10
-    ports:
-      - "7700:7700"
     volumes:
       - meili_data:/meili_data
     environment:
@@ -92,6 +85,20 @@ services:
       test: ["CMD", "curl", "-f", "http://localhost:7700/health"]
       interval: 10s
       retries: 5
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        API_BASE_URL: http://go-api:8080
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: /api
+    depends_on:
+      go-api:
+        condition: service_started
     restart: unless-stopped
 
   indexer:

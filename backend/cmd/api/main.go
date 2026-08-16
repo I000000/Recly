@@ -10,6 +10,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/joho/godotenv"
 	"go.uber.org/zap"
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -23,6 +26,22 @@ import (
 	"github.com/I000000/recly/internal/router"
 	"github.com/I000000/recly/internal/service"
 )
+
+func runMigrations(databaseURL string) error {
+	m, err := migrate.New(
+		"file://internal/repository/postgres/migrations",
+		databaseURL,
+	)
+	if err != nil {
+		return err
+	}
+	defer m.Close()
+
+	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+		return err
+	}
+	return nil
+}
 
 // @title Recly API
 // @version 1.0
@@ -71,7 +90,7 @@ func main() {
 	}
 	defer logger.Sync()
 
-	logger.Info("application starting", zap.String("version", "1.0.0"))
+	logger.Info("Application starting", zap.String("version", "1.0.0"))
 
 	// --- Подключения ---
 	pool, err := postgres.NewPool(cfg.DatabaseURL)
@@ -79,6 +98,11 @@ func main() {
 		logger.Fatal("database", zap.Error(err))
 	}
 	defer pool.Close()
+
+	if err := runMigrations(cfg.DatabaseURL); err != nil {
+		logger.Fatal("migrations failed", zap.Error(err))
+	}
+	logger.Info("Migrations applied successfully")
 
 	publisher, err := rabbitmq.NewAMQPPublisher(cfg.RabbitMQURL)
 	if err != nil {
