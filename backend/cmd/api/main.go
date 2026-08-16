@@ -95,7 +95,7 @@ func main() {
 	savedItemH := handler.NewSavedItemHandler(savedItemSvc)
 	viewedItemH := handler.NewViewedItemHandler(viewedItemSvc)
 
-	r := router.Setup(authH, libH, recH, userH, searchH, savedItemH, viewedItemH, cfg.JWTSecret)
+	r := router.Setup(authH, libH, recH, userH, searchH, savedItemH, viewedItemH, cfg.JWTSecret, logger)
 
 	r.Static("/uploads", "./uploads")
 

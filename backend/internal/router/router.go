@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	swaggerfiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
+	"go.uber.org/zap"
 )
 
 func Setup(
@@ -18,9 +19,10 @@ func Setup(
 	savedItemH *handler.SavedItemHandler,
 	viewedItemH *handler.ViewedItemHandler,
 	secret string,
+	logger *zap.Logger,
 ) *gin.Engine {
 	r := gin.New()
-	r.Use(middleware.LoggerWithoutSpam())
+	r.Use(middleware.LoggerMiddleware(logger))
 	r.Use(corsMiddleware())
 
 	// Swagger UI — только в режиме разработки
